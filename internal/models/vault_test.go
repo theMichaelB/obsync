@@ -172,20 +172,11 @@ func TestKeyInfo_Validate(t *testing.T) {
 		errMsg  string
 	}{
 		{
-			name: "valid key info v1",
+			name: "valid key info legacy v0",
 			keyInfo: models.KeyInfo{
 				Version:           1,
-				EncryptionVersion: 1,
-				Salt:              "dGVzdHNhbHQ=",
-			},
-			wantErr: false,
-		},
-		{
-			name: "valid key info v2",
-			keyInfo: models.KeyInfo{
-				Version:           2,
-				EncryptionVersion: 2,
-				Salt:              "YWRkaXRpb25hbHRlc3RzYWx0",
+				EncryptionVersion: 0,
+				Salt:              "testsalt", // Raw salt for v0
 			},
 			wantErr: false,
 		},
@@ -219,14 +210,24 @@ func TestKeyInfo_Validate(t *testing.T) {
 			errMsg:  "key info version must be >= 1",
 		},
 		{
-			name: "unsupported encryption version 0",
+			name: "unsupported encryption version 1",
 			keyInfo: models.KeyInfo{
 				Version:           1,
-				EncryptionVersion: 0,
+				EncryptionVersion: 1,
 				Salt:              "dGVzdHNhbHQ=",
 			},
 			wantErr: true,
-			errMsg:  "unsupported encryption version: 0",
+			errMsg:  "unsupported encryption version: 1",
+		},
+		{
+			name: "unsupported encryption version 2",
+			keyInfo: models.KeyInfo{
+				Version:           1,
+				EncryptionVersion: 2,
+				Salt:              "dGVzdHNhbHQ=",
+			},
+			wantErr: true,
+			errMsg:  "unsupported encryption version: 2",
 		},
 		{
 			name: "unsupported encryption version 4",

@@ -136,6 +136,32 @@ func (l *Loader) loadEnv(cfg *Config) error {
 		cfg.Log.File = v
 	}
 	
+	// Auth settings
+	if v := os.Getenv(l.envPrefix + "EMAIL"); v != "" {
+		cfg.Auth.Email = v
+	}
+	
+	if v := os.Getenv(l.envPrefix + "PASSWORD"); v != "" {
+		cfg.Auth.Password = v
+	}
+	
+	if v := os.Getenv(l.envPrefix + "TOTP_SECRET"); v != "" {
+		cfg.Auth.TOTPSecret = v
+	}
+	
+	// Alternative environment variable names for compatibility
+	if v := os.Getenv("OBSIDIAN_EMAIL"); v != "" {
+		cfg.Auth.Email = v
+	}
+	
+	if v := os.Getenv("OBSIDIAN_PASSWORD"); v != "" {
+		cfg.Auth.Password = v
+	}
+	
+	if v := os.Getenv("OBSIDIAN_TOTP_SECRET"); v != "" {
+		cfg.Auth.TOTPSecret = v
+	}
+	
 	// Dev settings
 	if v := os.Getenv(l.envPrefix + "DEV_INSECURE"); v != "" {
 		cfg.Dev.InsecureSkipVerify = v == "true" || v == "1"

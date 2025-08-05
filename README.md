@@ -32,7 +32,10 @@ A secure, one-way synchronization tool for Obsidian vaults written in Go.
 
 ```bash
 # Login to Obsidian
-./obsync login --email="your-email" --password="your-password" --totp="123456"
+./obsync login --email="your-email" --password="your-password"
+
+# Generate TOTP codes
+./obsync totp
 
 # List available vaults
 ./obsync vaults list
@@ -43,6 +46,45 @@ A secure, one-way synchronization tool for Obsidian vaults written in Go.
 # Check sync status
 ./obsync status
 ```
+
+## TOTP/2FA Authentication
+
+Obsync supports automatic TOTP (Time-based One-Time Password) generation:
+
+```bash
+# Generate current TOTP code
+./obsync totp
+
+# Watch mode - continuously show new codes
+./obsync totp --watch
+
+# Use custom secret
+./obsync totp --secret "YOUR_BASE32_SECRET"
+
+# JSON output
+./obsync totp --json
+```
+
+### TOTP Setup
+
+1. **Get your TOTP secret from Obsidian:**
+   - Open Obsidian Settings → Account → Two-factor authentication
+   - When setting up 2FA, save the secret key (base32 string)
+
+2. **Configure in obsync:**
+   ```json
+   {
+     "auth": {
+       "totp_secret": "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+     }
+   }
+   ```
+
+3. **Login automatically generates codes:**
+   ```bash
+   ./obsync login --email="your-email"
+   # TOTP code automatically generated from config
+   ```
 
 ## Environment Variables
 

@@ -36,7 +36,7 @@ func ExampleProvider_DecryptData() {
 
 	// First encrypt some data to have valid ciphertext
 	plaintext := []byte("Hello, World!")
-	ciphertext, err := crypto.EncryptData(plaintext, key)
+	ciphertext, err := provider.EncryptData(plaintext, key)
 	if err != nil {
 		fmt.Printf("Encryption failed: %v\n", err)
 		return

@@ -60,8 +60,9 @@ func (k *KeyInfo) Validate() error {
 	}
 	
 	// Validate supported encryption versions
+	// Only versions 0 (legacy) and 3 (current) are actually supported by crypto
 	switch k.EncryptionVersion {
-	case 0, 1, 2, 3:
+	case 0, 3:
 		// Supported versions
 	default:
 		return fmt.Errorf("unsupported encryption version: %d", k.EncryptionVersion)

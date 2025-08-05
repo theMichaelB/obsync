@@ -104,7 +104,7 @@ func (m *MockTransport) DownloadChunk(ctx context.Context, chunkID string) ([]by
 }
 
 // StreamWS mocks WebSocket streaming.
-func (m *MockTransport) StreamWS(ctx context.Context, initMsg models.InitMessage) (<-chan models.WSMessage, error) {
+func (m *MockTransport) StreamWS(ctx context.Context, host string, initMsg models.InitMessage) (<-chan models.WSMessage, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

@@ -101,7 +101,7 @@ func TestWebSocketConnection(t *testing.T) {
 		var initMsg models.InitMessage
 		err = json.Unmarshal(msg.Data, &initMsg)
 		require.NoError(t, err)
-		assert.Equal(t, "vault-123", initMsg.VaultID)
+		assert.Equal(t, "vault-123", initMsg.ID)
 
 		// Send response
 		resp := models.WSMessage{
@@ -138,7 +138,7 @@ func TestWebSocketConnection(t *testing.T) {
 	// Send init
 	err = client.SendInit(models.InitMessage{
 		Token:   "test-token",
-		VaultID: "vault-123",
+		ID:      "vault-123",
 		Initial: true,
 		Version: 0,
 	})
@@ -254,8 +254,8 @@ func TestMockTransport(t *testing.T) {
 	assert.Equal(t, []byte("test data"), data)
 
 	// Test WebSocket
-	msgChan, err := mock.StreamWS(ctx, models.InitMessage{
-		VaultID: "vault-123",
+	msgChan, err := mock.StreamWS(ctx, "wss://test.example.com", models.InitMessage{
+		ID:      "vault-123",
 		Initial: true,
 	})
 	require.NoError(t, err)
@@ -290,7 +290,7 @@ done:
 	assert.Len(t, mock.ChunkRequests, 1)
 	assert.Equal(t, "chunk-123", mock.ChunkRequests[0])
 	assert.Len(t, mock.StreamRequests, 1)
-	assert.Equal(t, "vault-123", mock.StreamRequests[0].VaultID)
+	assert.Equal(t, "vault-123", mock.StreamRequests[0].ID)
 }
 
 func TestHTTPClientAPIError(t *testing.T) {

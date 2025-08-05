@@ -30,10 +30,10 @@ func TestSecurityRequirements(t *testing.T) {
 		plaintext := []byte("test message")
 
 		// Encrypt twice
-		cipher1, err := crypto.EncryptData(plaintext, key)
+		cipher1, err := provider.EncryptData(plaintext, key)
 		require.NoError(t, err)
 
-		cipher2, err := crypto.EncryptData(plaintext, key)
+		cipher2, err := provider.EncryptData(plaintext, key)
 		require.NoError(t, err)
 
 		// Ciphertexts should be different due to random nonce

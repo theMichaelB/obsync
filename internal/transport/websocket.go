@@ -106,7 +106,12 @@ func (c *WSClient) SendInit(msg models.InitMessage) error {
 		"vault_id": msg.ID,
 		"initial":  msg.Initial,
 		"version":  msg.Version,
-		"keyhash":  msg.Keyhash[:8] + "...", // Log first 8 chars for debugging
+		"keyhash":  func() string {
+			if len(msg.Keyhash) >= 8 {
+				return msg.Keyhash[:8] + "..."
+			}
+			return msg.Keyhash
+		}(), // Log first 8 chars for debugging
 		"full_message": msg,
 	}).Debug("Sending init message")
 

@@ -105,7 +105,7 @@ func TestProvider_DecryptData(t *testing.T) {
 		}
 
 		plaintext := []byte("Hello, World!")
-		ciphertext, err := crypto.EncryptData(plaintext, key)
+		ciphertext, err := provider.EncryptData(plaintext, key)
 		require.NoError(t, err)
 
 		// Decrypt
@@ -137,7 +137,7 @@ func TestProvider_DecryptData(t *testing.T) {
 		}
 
 		plaintext := []byte("sensitive data")
-		ciphertext, err := crypto.EncryptData(plaintext, key)
+		ciphertext, err := provider.EncryptData(plaintext, key)
 		require.NoError(t, err)
 
 		// Tamper with ciphertext
