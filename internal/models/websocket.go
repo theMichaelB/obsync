@@ -31,12 +31,16 @@ type WSMessage struct {
 	Data      json.RawMessage `json:"data"`
 }
 
-// InitMessage sent by client to start sync.
+// InitMessage sent by client to start sync (matches Obsidian protocol).
 type InitMessage struct {
-	Token   string `json:"token"`
-	VaultID string `json:"vault_id"`
-	Initial bool   `json:"initial"`
-	Version int    `json:"version"` // Last synced UID
+	Op                string `json:"op"`                // "init"
+	Token             string `json:"token"`             // auth token
+	ID                string `json:"id"`                // vault_id
+	Keyhash           string `json:"keyhash"`           // hex-encoded hash of vault key
+	Version           int    `json:"version"`           // Last synced UID
+	Initial           bool   `json:"initial"`           // Full vs incremental sync
+	Device            string `json:"device"`            // Client identifier
+	EncryptionVersion int    `json:"encryption_version"` // Vault encryption version
 }
 
 // InitResponse from server after init.

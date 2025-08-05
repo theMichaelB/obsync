@@ -120,7 +120,7 @@ func (e *Engine) GetProgress() *Progress {
 }
 
 // Sync performs a vault synchronization.
-func (e *Engine) Sync(ctx context.Context, vaultID string, vaultKey []byte, initial bool) error {
+func (e *Engine) Sync(ctx context.Context, vaultID, vaultHost string, vaultKey []byte, encryptionVersion int, initial bool) error {
 	e.mu.Lock()
 	if e.syncing {
 		e.mu.Unlock()
@@ -180,14 +180,24 @@ func (e *Engine) Sync(ctx context.Context, vaultID string, vaultKey []byte, init
 		syncState.Files = make(map[string]string)
 	}
 
+	// Generate keyhash (SHA256 of vault key)
+	hasher := sha256.New()
+	hasher.Write(vaultKey)
+	keyhash := hex.EncodeToString(hasher.Sum(nil))
+
 	// Connect to WebSocket
 	initMsg := models.InitMessage{
-		VaultID: vaultID,
-		Initial: initial,
-		Version: syncState.Version,
+		Op:                "init",
+		Token:             e.transport.GetToken(),
+		ID:                vaultID,
+		Keyhash:           keyhash,
+		Version:           syncState.Version,
+		Initial:           initial,
+		Device:            "ObsyncGo",
+		EncryptionVersion: encryptionVersion,
 	}
 
-	msgChan, err := e.transport.StreamWS(ctx, initMsg)
+	msgChan, err := e.transport.StreamWS(ctx, vaultHost, initMsg)
 	if err != nil {
 		return e.handleError(fmt.Errorf("connect websocket: %w", err))
 	}

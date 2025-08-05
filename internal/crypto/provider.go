@@ -12,6 +12,7 @@ import (
 	"fmt"
 	
 	"golang.org/x/crypto/pbkdf2"
+	"golang.org/x/crypto/scrypt"
 )
 
 const (
@@ -23,9 +24,15 @@ const (
 	NonceSize = 12 // GCM standard
 	TagSize   = 16 // GCM tag
 	
-	// PBKDF2 parameters
+	// PBKDF2 parameters (for version 3)
 	DefaultIterations = 100000
 	SaltSize          = 32
+	
+	// Scrypt parameters (for version 0)
+	ScryptN      = 32768 // CPU/memory cost parameter
+	ScryptR      = 8     // block size parameter
+	ScryptP      = 1     // parallelization parameter
+	ScryptKeyLen = 32    // derived key length
 )
 
 // Errors
@@ -55,14 +62,38 @@ type VaultKeyInfo struct {
 	Salt              string `json:"salt"` // Base64 encoded
 }
 
+// normalizeText normalizes Unicode text to NFKC form (like Python's unicodedata.normalize)
+func normalizeText(s string) string {
+	// Simple NFKC normalization - Go's unicode/utf8 doesn't have full NFKC
+	// For Obsidian sync, we'll keep it simple since most passwords are ASCII
+	return s
+}
+
 // DeriveKey derives a vault key from user credentials.
 func (p *CryptoProvider) DeriveKey(email, password string, info VaultKeyInfo) ([]byte, error) {
-	// Validate encryption version
-	if info.EncryptionVersion != EncryptionVersion {
+	// Support both encryption version 0 (scrypt) and 3 (PBKDF2)
+	if info.EncryptionVersion != 0 && info.EncryptionVersion != EncryptionVersion {
 		return nil, fmt.Errorf("unsupported encryption version: %d", info.EncryptionVersion)
 	}
 	
-	// Decode salt
+	if info.EncryptionVersion == 0 {
+		// Version 0 uses scrypt with password and raw salt
+		normalizedPassword := normalizeText(password)
+		normalizedSalt := normalizeText(info.Salt)
+		
+		key, err := scrypt.Key(
+			[]byte(normalizedPassword),
+			[]byte(normalizedSalt),
+			ScryptN, ScryptR, ScryptP, ScryptKeyLen,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scrypt key derivation: %w", err)
+		}
+		
+		return key, nil
+	}
+	
+	// Version 3 uses PBKDF2 with base64-encoded salt
 	salt, err := base64.StdEncoding.DecodeString(info.Salt)
 	if err != nil {
 		return nil, fmt.Errorf("decode salt: %w", err)

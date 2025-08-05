@@ -2,7 +2,6 @@ package transport
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync"
@@ -35,14 +34,14 @@ type WSClient struct {
 }
 
 // NewWSClient creates a WebSocket client.
-func NewWSClient(baseURL, token string, logger *events.Logger) *WSClient {
-	wsURL := baseURL
+func NewWSClient(wsURL, token string, logger *events.Logger) *WSClient {
+	// If it's not already a WebSocket URL, convert http(s) to ws(s)
 	if len(wsURL) > 4 && wsURL[:4] == "http" {
 		wsURL = "ws" + wsURL[4:] // Convert http(s) to ws(s)
 	}
 
 	return &WSClient{
-		url:          wsURL + "/api/v1/sync/stream",
+		url:          wsURL,
 		token:        token,
 		logger:       logger.WithField("component", "ws_client"),
 		messages:     make(chan models.WSMessage, 100),
@@ -102,24 +101,15 @@ func (c *WSClient) SendInit(msg models.InitMessage) error {
 		return fmt.Errorf("not connected")
 	}
 
-	wsMsg := models.WSMessage{
-		Type:      models.WSTypeInit,
-		Timestamp: time.Now(),
-	}
-
-	data, err := json.Marshal(msg)
-	if err != nil {
-		return fmt.Errorf("marshal init message: %w", err)
-	}
-	wsMsg.Data = json.RawMessage(data)
-
 	c.logger.WithFields(map[string]interface{}{
-		"vault_id": msg.VaultID,
+		"vault_id": msg.ID,
 		"initial":  msg.Initial,
 		"version":  msg.Version,
+		"keyhash":  msg.Keyhash[:8] + "...", // Log first 8 chars for debugging
 	}).Debug("Sending init message")
 
-	if err := conn.WriteJSON(wsMsg); err != nil {
+	// Send init message directly as flat JSON (Obsidian protocol)
+	if err := conn.WriteJSON(msg); err != nil {
 		return fmt.Errorf("send init: %w", err)
 	}
 
@@ -186,8 +176,9 @@ func (c *WSClient) readLoop() {
 			return nil
 		})
 
-		var msg models.WSMessage
-		err := conn.ReadJSON(&msg)
+		// Read raw message for debugging
+		var rawMsg map[string]interface{}
+		err := conn.ReadJSON(&rawMsg)
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err,
 				websocket.CloseGoingAway,
@@ -199,9 +190,19 @@ func (c *WSClient) readLoop() {
 		}
 
 		c.logger.WithFields(map[string]interface{}{
+			"raw_message": rawMsg,
+		}).Debug("Received raw WebSocket message")
+
+		// Convert to WSMessage structure (for now, adapt as needed)
+		msg := models.WSMessage{
+			Type: models.WSMessageType(getString(rawMsg, "op")),
+			UID:  getInt(rawMsg, "uid"),
+		}
+
+		c.logger.WithFields(map[string]interface{}{
 			"type": msg.Type,
 			"uid":  msg.UID,
-		}).Debug("Received message")
+		}).Debug("Processed message")
 
 		select {
 		case c.messages <- msg:
@@ -209,6 +210,21 @@ func (c *WSClient) readLoop() {
 			return
 		}
 	}
+}
+
+// Helper functions for parsing raw WebSocket messages
+func getString(m map[string]interface{}, key string) string {
+	if v, ok := m[key].(string); ok {
+		return v
+	}
+	return ""
+}
+
+func getInt(m map[string]interface{}, key string) int {
+	if v, ok := m[key].(float64); ok {
+		return int(v)
+	}
+	return 0
 }
 
 // pingLoop sends periodic pings.
@@ -238,3 +254,5 @@ func (c *WSClient) pingLoop() {
 		}
 	}
 }
+
+

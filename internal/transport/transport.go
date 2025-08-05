@@ -16,7 +16,7 @@ type Transport interface {
 	DownloadChunk(ctx context.Context, chunkID string) ([]byte, error)
 
 	// WebSocket methods
-	StreamWS(ctx context.Context, initMsg models.InitMessage) (<-chan models.WSMessage, error)
+	StreamWS(ctx context.Context, host string, initMsg models.InitMessage) (<-chan models.WSMessage, error)
 
 	// Authentication
 	SetToken(token string)
@@ -52,9 +52,10 @@ func (t *DefaultTransport) DownloadChunk(ctx context.Context, chunkID string) ([
 }
 
 // StreamWS creates a WebSocket stream.
-func (t *DefaultTransport) StreamWS(ctx context.Context, initMsg models.InitMessage) (<-chan models.WSMessage, error) {
-	// Create new WS client for this stream
-	t.wsClient = NewWSClient(t.httpClient.baseURL, t.httpClient.token, t.logger)
+func (t *DefaultTransport) StreamWS(ctx context.Context, host string, initMsg models.InitMessage) (<-chan models.WSMessage, error) {
+	// Create new WS client for this stream using vault host
+	wsURL := "wss://" + host + "/"
+	t.wsClient = NewWSClient(wsURL, t.httpClient.token, t.logger)
 
 	// Connect
 	if err := t.wsClient.Connect(ctx); err != nil {

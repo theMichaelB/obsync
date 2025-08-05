@@ -11,6 +11,7 @@ import (
 type Vault struct {
 	ID             string    `json:"id"`
 	Name           string    `json:"name"`
+	Host           string    `json:"host"`
 	EncryptionInfo KeyInfo   `json:"encryption_info"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
@@ -60,7 +61,7 @@ func (k *KeyInfo) Validate() error {
 	
 	// Validate supported encryption versions
 	switch k.EncryptionVersion {
-	case 1, 2, 3:
+	case 0, 1, 2, 3:
 		// Supported versions
 	default:
 		return fmt.Errorf("unsupported encryption version: %d", k.EncryptionVersion)
@@ -70,9 +71,12 @@ func (k *KeyInfo) Validate() error {
 		return fmt.Errorf("salt is required")
 	}
 	
-	// Validate salt is proper base64
-	if _, err := base64.StdEncoding.DecodeString(k.Salt); err != nil {
-		return fmt.Errorf("invalid salt encoding: must be valid base64")
+	// For encryption version 0, salt is raw string; for v3+, it's base64
+	if k.EncryptionVersion >= 3 {
+		// Validate salt is proper base64
+		if _, err := base64.StdEncoding.DecodeString(k.Salt); err != nil {
+			return fmt.Errorf("invalid salt encoding: must be valid base64")
+		}
 	}
 	
 	return nil

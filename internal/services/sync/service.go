@@ -64,13 +64,19 @@ func (s *Service) SyncVault(ctx context.Context, vaultID string, opts SyncOption
 		return fmt.Errorf("credentials not set")
 	}
 
+	// Get vault information (includes host)
+	vault, err := s.vaults.GetVault(ctx, vaultID)
+	if err != nil {
+		return fmt.Errorf("get vault info: %w", err)
+	}
+
 	vaultKey, err := s.vaults.GetVaultKey(ctx, vaultID, s.email, s.password)
 	if err != nil {
 		return fmt.Errorf("get vault key: %w", err)
 	}
 
 	// Start sync
-	return s.engine.Sync(ctx, vaultID, vaultKey, opts.Initial)
+	return s.engine.Sync(ctx, vaultID, vault.Host, vaultKey, vault.EncryptionInfo.EncryptionVersion, opts.Initial)
 }
 
 // GetProgress returns sync progress.

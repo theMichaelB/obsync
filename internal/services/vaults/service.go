@@ -2,7 +2,6 @@ package vaults
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 
 	"github.com/yourusername/obsync/internal/crypto"
@@ -61,15 +60,14 @@ func (s *Service) ListVaults(ctx context.Context) ([]*models.Vault, error) {
 		vault := &models.Vault{
 			ID:   getString(vaultMap, "id"),
 			Name: getString(vaultMap, "name"),
+			Host: getString(vaultMap, "host"),
 		}
 
-		// Parse encryption info
-		if encInfo, ok := vaultMap["encryption_info"].(map[string]interface{}); ok {
-			vault.EncryptionInfo = models.KeyInfo{
-				Version:           getInt(encInfo, "version"),
-				EncryptionVersion: getInt(encInfo, "encryption_version"),
-				Salt:              getString(encInfo, "salt"),
-			}
+		// Parse encryption info (fields are directly in vault data)
+		vault.EncryptionInfo = models.KeyInfo{
+			Version:           1, // Default version
+			EncryptionVersion: getInt(vaultMap, "encryption_version"),
+			Salt:              getString(vaultMap, "salt"),
 		}
 
 		vaults = append(vaults, vault)
@@ -87,29 +85,18 @@ func (s *Service) GetVault(ctx context.Context, vaultID string) (*models.Vault, 
 		return vault, nil
 	}
 
-	// Fetch from server
-	resp, err := s.transport.PostJSON(ctx, "/api/v1/vaults/get", map[string]string{
-		"vault_id": vaultID,
-	})
+	// If not in cache, fetch vault list to populate cache
+	_, err := s.ListVaults(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get vault: %w", err)
 	}
 
-	vault := &models.Vault{
-		ID:   getString(resp, "id"),
-		Name: getString(resp, "name"),
+	// Check cache again after listing vaults
+	if vault, ok := s.vaults[vaultID]; ok {
+		return vault, nil
 	}
 
-	if encInfo, ok := resp["encryption_info"].(map[string]interface{}); ok {
-		vault.EncryptionInfo = models.KeyInfo{
-			Version:           getInt(encInfo, "version"),
-			EncryptionVersion: getInt(encInfo, "encryption_version"),
-			Salt:              getString(encInfo, "salt"),
-		}
-	}
-
-	s.vaults[vaultID] = vault
-	return vault, nil
+	return nil, fmt.Errorf("vault not found: %s", vaultID)
 }
 
 // GetVaultKey derives the encryption key for a vault.
@@ -130,17 +117,11 @@ func (s *Service) GetVaultKey(ctx context.Context, vaultID, email, password stri
 		"encryption_version": vault.EncryptionInfo.EncryptionVersion,
 	}).Debug("Deriving vault key")
 
-	// Convert salt from base64
-	salt, err := base64.StdEncoding.DecodeString(vault.EncryptionInfo.Salt)
-	if err != nil {
-		return nil, fmt.Errorf("decode salt: %w", err)
-	}
-
 	// Derive key
 	keyInfo := crypto.VaultKeyInfo{
 		Version:           vault.EncryptionInfo.Version,
 		EncryptionVersion: vault.EncryptionInfo.EncryptionVersion,
-		Salt:              string(salt),
+		Salt:              vault.EncryptionInfo.Salt, // Pass salt as-is, crypto provider handles encoding
 	}
 
 	key, err := s.crypto.DeriveKey(email, password, keyInfo)
