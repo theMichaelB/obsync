@@ -1,8 +1,10 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
+	"time"
 	
 	"github.com/TheMichaelB/obsync/internal/config"
 	"github.com/TheMichaelB/obsync/internal/crypto"
@@ -43,13 +45,14 @@ func NewLambdaClient(cfg *config.Config, logger *events.Logger) (*Client, error)
 		return nil, fmt.Errorf("create s3 store: %w", err)
 	}
 	
-	// Create DynamoDB state
-	dynamoStore, err := adapters.NewDynamoDBStore(
-		lambdaCfg.StateTableName,
+	// Create S3 state store
+	s3StateStore, err := adapters.NewS3StateStore(
+		lambdaCfg.S3Bucket,
+		lambdaCfg.S3StatePrefix,
 		logger,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("create dynamodb store: %w", err)
+		return nil, fmt.Errorf("create s3 state store: %w", err)
 	}
 	
 	// Create crypto provider
@@ -66,11 +69,21 @@ func NewLambdaClient(cfg *config.Config, logger *events.Logger) (*Client, error)
 		MaxConcurrent: cfg.Sync.MaxConcurrent,
 	}
 	
+	// Download states on startup if enabled
+	if lambdaCfg.DownloadOnStartup {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		
+		if err := s3StateStore.DownloadStatesOnStartup(ctx); err != nil {
+			logger.WithError(err).Warn("Failed to download states on startup, continuing without cache")
+		}
+	}
+	
 	// Create sync service
 	syncService := sync.NewService(
 		transportClient,
 		cryptoProvider,
-		dynamoStore,
+		s3StateStore,
 		s3Store,
 		authService,
 		vaultService,
@@ -83,7 +96,7 @@ func NewLambdaClient(cfg *config.Config, logger *events.Logger) (*Client, error)
 		Auth:      authService,
 		Vaults:    vaultService,
 		Sync:      syncService,
-		State:     &stateManager{store: dynamoStore},
+		State:     &stateManager{store: s3StateStore},
 		config:    cfg,
 		logger:    logger,
 		transport: transportClient,

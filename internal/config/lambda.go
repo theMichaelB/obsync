@@ -8,24 +8,26 @@ import (
 
 // LambdaConfig contains Lambda-specific settings
 type LambdaConfig struct {
-	MaxMemoryMB      int           `json:"max_memory_mb"`
-	TimeoutBuffer    time.Duration `json:"timeout_buffer"`
-	BatchSize        int           `json:"batch_size"`
-	MaxConcurrent    int           `json:"max_concurrent"`
-	EnableProgress   bool          `json:"enable_progress"`
-	S3Bucket         string        `json:"s3_bucket"`
-	S3Prefix         string        `json:"s3_prefix"`
-	StateTableName   string        `json:"state_table_name"`
+	MaxMemoryMB        int           `json:"max_memory_mb"`
+	TimeoutBuffer      time.Duration `json:"timeout_buffer"`
+	BatchSize          int           `json:"batch_size"`
+	MaxConcurrent      int           `json:"max_concurrent"`
+	EnableProgress     bool          `json:"enable_progress"`
+	S3Bucket           string        `json:"s3_bucket"`
+	S3Prefix           string        `json:"s3_prefix"`
+	S3StatePrefix      string        `json:"s3_state_prefix"`
+	DownloadOnStartup  bool          `json:"download_on_startup"`
 }
 
 // LoadLambdaConfig loads configuration for Lambda environment
 func LoadLambdaConfig() *LambdaConfig {
 	cfg := &LambdaConfig{
-		MaxMemoryMB:   1024,
-		TimeoutBuffer: 30 * time.Second,
-		BatchSize:     100,
-		MaxConcurrent: 5,
-		EnableProgress: true,
+		MaxMemoryMB:       1024,
+		TimeoutBuffer:     30 * time.Second,
+		BatchSize:         100,
+		MaxConcurrent:     5,
+		EnableProgress:    true,
+		DownloadOnStartup: true, // Default to downloading states on startup
 	}
 	
 	// Override from environment
@@ -47,12 +49,16 @@ func LoadLambdaConfig() *LambdaConfig {
 		}
 	}
 	
+	if v := os.Getenv("LAMBDA_DOWNLOAD_ON_STARTUP"); v != "" {
+		cfg.DownloadOnStartup = v == "true" || v == "1"
+	}
+	
 	cfg.S3Bucket = os.Getenv("S3_BUCKET")
 	cfg.S3Prefix = os.Getenv("S3_PREFIX")
-	cfg.StateTableName = os.Getenv("STATE_TABLE_NAME")
+	cfg.S3StatePrefix = os.Getenv("S3_STATE_PREFIX")
 	
-	if cfg.StateTableName == "" {
-		cfg.StateTableName = "obsync-state"
+	if cfg.S3StatePrefix == "" {
+		cfg.S3StatePrefix = "state/"
 	}
 	
 	return cfg

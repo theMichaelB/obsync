@@ -11,7 +11,7 @@ The Lambda implementation provides:
 - **Progress tracking** across Lambda invocations for partial syncs
 - **Error recovery** for resuming failed syncs
 - **S3 storage adapter** for vault file storage
-- **DynamoDB state adapter** for sync state persistence
+- **S3 state storage** with version tracking and startup caching
 
 ## Components
 
@@ -23,8 +23,9 @@ Entry point for Lambda function that processes sync events.
 - **handler_test.go**: Basic tests for handler functionality
 
 ### Adapters (`adapters/`)
-- **s3_store.go**: S3 implementation of BlobStore interface
-- **dynamodb_store.go**: DynamoDB implementation of State Store interface
+- **s3_store.go**: S3 implementation of BlobStore interface for vault files
+- **s3_state_store.go**: S3 implementation of State Store interface with version tracking
+- **dynamodb_store.go**: Legacy DynamoDB state implementation (deprecated)
 
 ### Sync Components (`sync/`)
 - **memory_manager.go**: Monitors and manages Lambda memory usage
@@ -56,13 +57,14 @@ Required:
 - `OBSIDIAN_EMAIL`: Obsidian account email
 - `OBSIDIAN_PASSWORD`: Obsidian account password  
 - `OBSIDIAN_TOTP_SECRET`: TOTP secret for 2FA
-- `S3_BUCKET`: S3 bucket for vault storage
-- `STATE_TABLE_NAME`: DynamoDB table for state storage
+- `S3_BUCKET`: S3 bucket for vault and state storage
 
 Optional:
-- `S3_PREFIX`: S3 key prefix for organization
+- `S3_PREFIX`: S3 key prefix for vault files (default: empty)
+- `S3_STATE_PREFIX`: S3 key prefix for state files (default: "state/")
 - `LAMBDA_BATCH_SIZE`: Files per batch (default: 100)
 - `LAMBDA_MAX_CONCURRENT`: Max concurrent batches (default: 5)
+- `LAMBDA_DOWNLOAD_ON_STARTUP`: Download states on startup (default: true)
 
 ## Usage
 

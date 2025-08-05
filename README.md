@@ -239,7 +239,7 @@ aws lambda create-function \
     OBSIDIAN_EMAIL=your@email.com,
     OBSIDIAN_PASSWORD=yourpass,
     S3_BUCKET=my-vault-bucket,
-    STATE_TABLE_NAME=obsync-state
+    S3_STATE_PREFIX=state/
   }"
 ```
 
@@ -262,7 +262,7 @@ Obsync is built with clean architecture principles:
 
 - **Transport Layer** - HTTP/2 client with WebSocket support
 - **Crypto Provider** - AES-256-GCM encryption with PBKDF2
-- **State Management** - SQLite for local, DynamoDB for Lambda
+- **State Management** - SQLite for local, S3 for Lambda
 - **Storage Adapters** - Local filesystem or S3
 - **Services** - Auth, Vaults, Sync orchestration
 
