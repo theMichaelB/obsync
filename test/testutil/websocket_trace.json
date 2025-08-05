@@ -1,0 +1,94 @@
+{
+  "trace_id": "test-sync-001",
+  "recorded_at": "2024-01-15T10:00:00Z",
+  "messages": [
+    {
+      "direction": "client_to_server",
+      "timestamp": "2024-01-15T10:00:00.000Z",
+      "data": {
+        "type": "init",
+        "data": {
+          "token": "test-token-123",
+          "vault_id": "vault-123",
+          "initial": false,
+          "version": 100
+        }
+      }
+    },
+    {
+      "direction": "server_to_client",
+      "timestamp": "2024-01-15T10:00:00.100Z",
+      "data": {
+        "type": "init_response",
+        "timestamp": "2024-01-15T10:00:00.100Z",
+        "data": {
+          "success": true,
+          "total_files": 3,
+          "start_version": 100,
+          "latest_version": 103
+        }
+      }
+    },
+    {
+      "direction": "server_to_client",
+      "timestamp": "2024-01-15T10:00:00.200Z",
+      "data": {
+        "type": "file",
+        "uid": 101,
+        "timestamp": "2024-01-15T10:00:00.200Z",
+        "data": {
+          "uid": 101,
+          "path": "6e6f7465732f6e65772e6d64",
+          "hash": "c3ab8ff13720e8ad9047dd39466b3c8974e592c2fa383d4a3960714caef0c4f2",
+          "size": 512,
+          "modified_time": "2024-01-15T09:45:00Z",
+          "chunk_id": "chunk_101"
+        }
+      }
+    },
+    {
+      "direction": "server_to_client",
+      "timestamp": "2024-01-15T10:00:00.300Z",
+      "data": {
+        "type": "delete",
+        "uid": 102,
+        "timestamp": "2024-01-15T10:00:00.300Z",
+        "data": {
+          "uid": 102,
+          "path": "6f6c642f72656d6f7665642e6d64",
+          "is_file": true
+        }
+      }
+    },
+    {
+      "direction": "server_to_client",
+      "timestamp": "2024-01-15T10:00:00.400Z",
+      "data": {
+        "type": "file",
+        "uid": 103,
+        "timestamp": "2024-01-15T10:00:00.400Z",
+        "data": {
+          "uid": 103,
+          "path": "6e6f7465732f746573742e6d64",
+          "hash": "27d7531a0c8d6f67e7a9f2e5c7a0b7c23456789abcdef0123456789abcdef012",
+          "size": 1536,
+          "modified_time": "2024-01-15T09:50:00Z",
+          "chunk_id": "chunk_103"
+        }
+      }
+    },
+    {
+      "direction": "server_to_client",
+      "timestamp": "2024-01-15T10:00:00.500Z",
+      "data": {
+        "type": "done",
+        "timestamp": "2024-01-15T10:00:00.500Z",
+        "data": {
+          "final_version": 103,
+          "total_synced": 3,
+          "duration": "0.5s"
+        }
+      }
+    }
+  ]
+}
