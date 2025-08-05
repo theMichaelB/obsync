@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/yourusername/obsync/internal/crypto"
+	"github.com/TheMichaelB/obsync/internal/crypto"
 )
 
 func ExampleProvider_DeriveKey() {

@@ -503,7 +503,7 @@ chmod +x .githooks/*
 # Initialize go module if needed
 if [ ! -f "go.mod" ]; then
     echo "📝 Initializing Go module..."
-    go mod init github.com/yourusername/obsync
+    go mod init github.com/TheMichaelB/obsync
 fi
 
 # Run initial checks

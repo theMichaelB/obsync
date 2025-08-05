@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/yourusername/obsync/internal/crypto"
-	"github.com/yourusername/obsync/internal/crypto/testdata"
+	"github.com/TheMichaelB/obsync/internal/crypto"
+	"github.com/TheMichaelB/obsync/internal/crypto/testdata"
 )
 
 func TestProvider_DeriveKey(t *testing.T) {

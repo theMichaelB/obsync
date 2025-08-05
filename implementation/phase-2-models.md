@@ -386,7 +386,7 @@ import (
     "encoding/json"
     "time"
     
-    "github.com/yourusername/obsync/internal/models"
+    "github.com/TheMichaelB/obsync/internal/models"
 )
 
 // SampleMessages provides test WebSocket messages.
@@ -674,7 +674,7 @@ import (
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
     
-    "github.com/yourusername/obsync/internal/models"
+    "github.com/TheMichaelB/obsync/internal/models"
 )
 
 func TestParseWSMessage(t *testing.T) {
@@ -801,7 +801,7 @@ import (
     
     "github.com/stretchr/testify/assert"
     
-    "github.com/yourusername/obsync/internal/models"
+    "github.com/TheMichaelB/obsync/internal/models"
 )
 
 func TestIsBinaryFile(t *testing.T) {

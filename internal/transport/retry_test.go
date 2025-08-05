@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/yourusername/obsync/internal/events"
+	"github.com/TheMichaelB/obsync/internal/events"
 )
 
 func TestRetryWithBackoff(t *testing.T) {

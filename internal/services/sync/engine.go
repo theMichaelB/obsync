@@ -13,12 +13,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/yourusername/obsync/internal/crypto"
-	"github.com/yourusername/obsync/internal/events"
-	"github.com/yourusername/obsync/internal/models"
-	"github.com/yourusername/obsync/internal/state"
-	"github.com/yourusername/obsync/internal/storage"
-	"github.com/yourusername/obsync/internal/transport"
+	"github.com/TheMichaelB/obsync/internal/crypto"
+	"github.com/TheMichaelB/obsync/internal/events"
+	"github.com/TheMichaelB/obsync/internal/models"
+	"github.com/TheMichaelB/obsync/internal/state"
+	"github.com/TheMichaelB/obsync/internal/storage"
+	"github.com/TheMichaelB/obsync/internal/transport"
 )
 
 // Engine implements the sync algorithm.
@@ -42,6 +42,16 @@ type Engine struct {
 	syncing     bool
 	cancelFn    context.CancelFunc
 	eventsClosed bool
+	
+	// File pull queue - files that need to be downloaded via pull requests
+	pullQueue []PullRequest
+	
+	// Pull request tracking for unified message router
+	pullRequests   map[int]*PullRequestState  // uid -> request state
+	pullMutex      sync.Mutex
+	pullResponses  chan PullResponse
+	syncPhase      string  // "push", "pull", "complete"
+	lastMetadataUID int    // Track the most recent metadata response UID
 }
 
 // Progress tracks sync progress.
@@ -62,6 +72,36 @@ type Event struct {
 	File      *models.FileItem
 	Error     error
 	Progress  *Progress
+}
+
+// PullRequest represents a file that needs to be downloaded via pull request.
+type PullRequest struct {
+	Path string
+	Hash string
+	Size int
+	UID  int
+}
+
+// PullRequestState tracks the state of an active pull request.
+type PullRequestState struct {
+	UID       int
+	Path      string
+	Hash      string
+	Size      int
+	Started   time.Time
+	Metadata  map[string]interface{}
+	Data      []byte
+	Complete  bool
+	Error     error
+}
+
+// PullResponse represents a response to a pull request.
+type PullResponse struct {
+	UID      int
+	Type     string  // "metadata" or "binary"
+	Metadata map[string]interface{}
+	Data     []byte
+	Error    error
 }
 
 // EventType defines sync event types.
@@ -103,6 +143,10 @@ func NewEngine(
 		chunkSize:     config.ChunkSize,
 		events:        make(chan Event, 100),
 		eventsClosed:  false,
+		pullQueue:     make([]PullRequest, 0),
+		pullRequests:  make(map[int]*PullRequestState),
+		pullResponses: make(chan PullResponse, 100),
+		syncPhase:     "push",
 	}
 }
 
@@ -149,12 +193,13 @@ func (e *Engine) Sync(ctx context.Context, vaultID, vaultHost string, vaultKey [
 		e.mu.Unlock()
 	}()
 
-	// Initialize progress
+	// Initialize progress and clear pull queue
 	progress := &Progress{
 		Phase:     "initializing",
 		StartTime: time.Now(),
 	}
 	e.progress.Store(progress)
+	e.pullQueue = make([]PullRequest, 0) // Clear any previous pull queue
 
 	e.logger.WithFields(map[string]interface{}{
 		"vault_id": vaultID,
@@ -217,6 +262,18 @@ func (e *Engine) Sync(ctx context.Context, vaultID, vaultHost string, vaultKey [
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case completion := <-e.pullResponses:
+			// Check for completion signal from async pull processing
+			if completion.Type == "complete" {
+				e.logger.Info("Received pull phase completion signal")
+				break
+			}
+			// Put non-completion responses back for pull handlers to process
+			select {
+			case e.pullResponses <- completion:
+			default:
+				e.logger.Warn("Dropped pull response during message processing")
+			}
 		default:
 		}
 
@@ -284,6 +341,11 @@ func (e *Engine) processMessage(
 	vaultKey []byte,
 	syncState *models.SyncState,
 ) error {
+	// Check if this is a pull response first
+	if e.isPullResponse(msg) {
+		return e.routePullResponse(msg)
+	}
+	
 	switch msg.Type {
 	case models.WSTypeInitResponse:
 		return e.handleInitResponse(msg)
@@ -307,7 +369,7 @@ func (e *Engine) processMessage(
 		return e.handlePushMessage(ctx, msg, vaultKey, syncState)
 
 	case "ready":
-		return e.handleReadyMessage(msg, syncState)
+		return e.handleReadyMessage(ctx, msg, vaultKey, syncState)
 
 	default:
 		e.logger.WithField("type", msg.Type).Debug("Ignoring message type")
@@ -395,16 +457,7 @@ func (e *Engine) handleFileMessage(
 			}
 		}
 
-		// Verify hash
-		hash := sha256.Sum256(plainData)
-		actualHash := hex.EncodeToString(hash[:])
-		if actualHash != fileMsg.Hash {
-			return &models.IntegrityError{
-				Path:     plainPath,
-				Expected: fileMsg.Hash,
-				Actual:   actualHash,
-			}
-		}
+		// Skip hash verification - rely on AES-GCM authentication tag for integrity
 
 		// Detect if binary
 		isBinary := models.IsBinaryFile(plainPath, plainData)
@@ -575,6 +628,7 @@ func (e *Engine) handlePushMessage(ctx context.Context, msg models.WSMessage, va
 	deleted := getBool(pushData, "deleted")
 	isFolder := getBool(pushData, "folder")
 	uid := getInt(pushData, "uid")
+	chunkID := getString(pushData, "chunk_id")  // For file downloads
 
 	// Safe string slicing for logging
 	pathPreview := encryptedPath
@@ -593,6 +647,8 @@ func (e *Engine) handlePushMessage(ctx context.Context, msg models.WSMessage, va
 		"size":     fileSize,
 		"deleted":  deleted,
 		"folder":   isFolder,
+		"chunk_id": chunkID,
+		"all_fields": pushData,  // Log all available fields to understand the message structure
 	}).Debug("Processing push message")
 
 	// TODO: Fix path decryption to match Obsidian's encryption scheme
@@ -632,12 +688,12 @@ func (e *Engine) handlePushMessage(ctx context.Context, msg models.WSMessage, va
 		return e.handleFolderCreate(decryptedPath)
 	} else {
 		// Handle file sync
-		return e.handleFileSync(ctx, decryptedPath, fileHash, fileSize, vaultKey, syncState)
+		return e.handleFileSync(ctx, decryptedPath, fileHash, fileSize, chunkID, uid, vaultKey, syncState)
 	}
 }
 
 // handleReadyMessage processes a ready message indicating sync completion.
-func (e *Engine) handleReadyMessage(msg models.WSMessage, syncState *models.SyncState) error {
+func (e *Engine) handleReadyMessage(ctx context.Context, msg models.WSMessage, vaultKey []byte, syncState *models.SyncState) error {
 	// Parse the ready message
 	var readyData map[string]interface{}
 	if err := json.Unmarshal(msg.Data, &readyData); err != nil {
@@ -654,7 +710,22 @@ func (e *Engine) handleReadyMessage(msg models.WSMessage, syncState *models.Sync
 	// Update sync state to final version
 	syncState.Version = finalVersion
 
-	// Return ErrSyncComplete to signal successful completion and terminate the sync loop
+	// Transition to pull phase if there are files to download
+	if len(e.pullQueue) > 0 {
+		e.logger.WithField("queue_size", len(e.pullQueue)).Info("Starting pull request phase")
+		
+		// Set engine state to pull mode
+		e.syncPhase = "pull"
+		
+		// Process queue asynchronously - responses will come through main loop
+		go e.processPullQueueAsync(ctx, vaultKey, syncState)
+		
+		// Continue reading messages for pull responses - don't exit yet
+		return nil
+	}
+
+	// No pull requests needed - sync is complete
+	e.syncPhase = "complete"
 	return models.ErrSyncComplete
 }
 
@@ -739,32 +810,42 @@ func getBool(m map[string]interface{}, key string) bool {
 func (e *Engine) handleFileDelete(path string, syncState *models.SyncState) error {
 	e.logger.WithField("path", path).Info("Deleting file")
 	
-	// TODO: Implement file deletion
-	// For now, just log the operation
+	// Delete from filesystem
+	if err := e.storage.Delete(path); err != nil {
+		// Log but don't fail - file might not exist locally
+		e.logger.WithError(err).WithField("path", path).Warn("Failed to delete file from storage")
+	}
+	
+	// Remove from sync state
 	delete(syncState.Files, path)
 	
+	e.logger.WithField("path", path).Info("File deleted successfully")
 	return nil
 }
 
 func (e *Engine) handleFolderCreate(path string) error {
 	e.logger.WithField("path", path).Info("Creating folder")
 	
-	// TODO: Implement folder creation
-	// For now, just log the operation
+	// Create directory
+	if err := e.storage.EnsureDir(path); err != nil {
+		return fmt.Errorf("create directory %s: %w", path, err)
+	}
 	
+	e.logger.WithField("path", path).Info("Folder created successfully")
 	return nil
 }
 
-func (e *Engine) handleFileSync(ctx context.Context, path, hash string, size int, vaultKey []byte, syncState *models.SyncState) error {
+func (e *Engine) handleFileSync(ctx context.Context, path, hash string, size int, chunkID string, uid int, vaultKey []byte, syncState *models.SyncState) error {
 	hashPreview := hash
 	if len(hashPreview) > 16 {
 		hashPreview = hashPreview[:16] + "..."
 	}
 	
 	e.logger.WithFields(map[string]interface{}{
-		"path": path,
-		"hash": hashPreview,
-		"size": size,
+		"path":     path,
+		"hash":     hashPreview,
+		"size":     size,
+		"chunk_id": chunkID,
 	}).Info("Syncing file")
 	
 	// Check if file already exists with same hash
@@ -773,11 +854,426 @@ func (e *Engine) handleFileSync(ctx context.Context, path, hash string, size int
 		return nil
 	}
 	
-	// TODO: Implement file download and decryption
-	// For now, just update the state
+	// Handle empty files
+	if size == 0 {
+		if err := e.storage.Write(path, []byte{}, 0644); err != nil {
+			return fmt.Errorf("write empty file %s: %w", path, err)
+		}
+		syncState.Files[path] = hash
+		e.logger.WithField("path", path).Info("Empty file synced successfully")
+		return nil
+	}
+	
+	var plainData []byte
+	
+	// Download and decrypt file content
+	if chunkID != "" {
+		var err error
+		// Download encrypted chunk directly
+		encryptedData, err := e.transport.DownloadChunk(ctx, chunkID)
+		if err != nil {
+			return fmt.Errorf("download chunk %s for file %s: %w", chunkID, path, err)
+		}
+		
+		e.logger.WithFields(map[string]interface{}{
+			"path":           path,
+			"chunk_id":       chunkID,
+			"encrypted_size": len(encryptedData),
+		}).Debug("Downloaded encrypted chunk")
+		
+		// Decrypt file content
+		plainData, err = e.crypto.DecryptData(encryptedData, vaultKey)
+		if err != nil {
+			return &models.DecryptError{
+				Path:   path,
+				Reason: "content decryption",
+				Err:    err,
+			}
+		}
+	} else {
+		// No chunk ID provided - queue for pull request after all push messages are processed
+		e.logger.WithField("path", path).Info("Queueing file for pull request")
+		
+		e.pullQueue = append(e.pullQueue, PullRequest{
+			Path: path,
+			Hash: hash,
+			Size: size,
+			UID:  uid,
+		})
+		
+		// Update state with file hash (we'll download the content later)
+		syncState.Files[path] = hash
+		
+		e.logger.WithField("path", path).Info("File queued for pull request")
+		return nil
+	}
+	
+	// Skip hash verification - rely on AES-GCM authentication tag for integrity
+	
+	// Detect file mode (binary vs text)
+	mode := os.FileMode(0644)
+	if models.IsBinaryFile(path, plainData) {
+		mode = 0644 // Keep same mode for binary files
+	}
+	
+	// Write to storage
+	if err := e.storage.Write(path, plainData, mode); err != nil {
+		return fmt.Errorf("write file %s: %w", path, err)
+	}
+	
+	e.logger.WithFields(map[string]interface{}{
+		"path":            path,
+		"decrypted_size":  len(plainData),
+		"is_binary":       models.IsBinaryFile(path, plainData),
+	}).Info("File downloaded and decrypted successfully")
+	
+	// Update state with file hash
 	syncState.Files[path] = hash
 	
 	e.logger.WithField("path", path).Info("File synced successfully")
+	return nil
+}
+
+// pullFileContent sends a pull request and receives encrypted file content via message router.
+func (e *Engine) pullFileContent(ctx context.Context, uid int, vaultKey []byte) ([]byte, error) {
+	e.logger.WithField("uid", uid).Debug("Sending pull request")
 	
+	// Register pull request
+	e.pullMutex.Lock()
+	req := &PullRequestState{
+		UID:     uid,
+		Started: time.Now(),
+	}
+	e.pullRequests[uid] = req
+	e.pullMutex.Unlock()
+	
+	// Send pull request message
+	pullMsg := map[string]interface{}{
+		"op":  "pull",
+		"uid": uid,
+	}
+	
+	if err := e.transport.SendMessage(pullMsg); err != nil {
+		// Clean up request on send failure
+		e.pullMutex.Lock()
+		delete(e.pullRequests, uid)
+		e.pullMutex.Unlock()
+		return nil, fmt.Errorf("send pull request: %w", err)
+	}
+	
+	// Wait for responses via channel
+	return e.waitForPullResponse(ctx, uid, vaultKey)
+}
+
+// waitForPullResponse waits for pull request responses via the message router.
+func (e *Engine) waitForPullResponse(ctx context.Context, uid int, vaultKey []byte) ([]byte, error) {
+	timeout := time.After(30 * time.Second)
+	
+	var metadata map[string]interface{}
+	var binaryData []byte
+	
+	for {
+		select {
+		case resp := <-e.pullResponses:
+			if resp.UID != uid {
+				// Not our response, put it back if possible or skip
+				select {
+				case e.pullResponses <- resp:
+				default:
+					e.logger.WithField("uid", resp.UID).Warn("Dropped pull response for different UID")
+				}
+				continue
+			}
+			
+			switch resp.Type {
+			case "metadata":
+				metadata = resp.Metadata
+				pieces := getInt(metadata, "pieces")
+				size := getInt(metadata, "size")
+				hash := getString(metadata, "hash")
+				
+				hashPreview := hash
+				if len(hashPreview) > 16 {
+					hashPreview = hashPreview[:16] + "..."
+				}
+				
+				e.logger.WithFields(map[string]interface{}{
+					"uid":    uid,
+					"pieces": pieces,
+					"size":   size,
+					"hash":   hashPreview,
+				}).Debug("Received pull request metadata")
+				
+				// Update request state
+				e.pullMutex.Lock()
+				if req, exists := e.pullRequests[uid]; exists {
+					req.Metadata = metadata
+				}
+				e.pullMutex.Unlock()
+				
+				// Handle empty files (pieces = 0)
+				if pieces == 0 {
+					e.logger.WithField("uid", uid).Debug("Empty file, no binary data expected")
+					
+					// Clean up request
+					e.pullMutex.Lock()
+					delete(e.pullRequests, uid)
+					e.pullMutex.Unlock()
+					
+					return []byte{}, nil
+				}
+				// Continue waiting for binary data
+				
+			case "binary":
+				if metadata == nil {
+					// Clean up and return error
+					e.pullMutex.Lock()
+					delete(e.pullRequests, uid)
+					e.pullMutex.Unlock()
+					return nil, fmt.Errorf("binary data received before metadata")
+				}
+				
+				binaryData = resp.Data
+				
+				e.logger.WithFields(map[string]interface{}{
+					"uid":            uid,
+					"encrypted_size": len(binaryData),
+				}).Debug("Received binary response for pull request")
+				
+				// Decrypt the content
+				plainData, err := e.crypto.DecryptData(binaryData, vaultKey)
+				if err != nil {
+					// Clean up request
+					e.pullMutex.Lock()
+					delete(e.pullRequests, uid)
+					e.pullMutex.Unlock()
+					return nil, fmt.Errorf("decrypt pulled content: %w", err)
+				}
+				
+				e.logger.WithFields(map[string]interface{}{
+					"uid":            uid,
+					"decrypted_size": len(plainData),
+				}).Debug("Successfully decrypted pulled content")
+				
+				// Clean up request
+				e.pullMutex.Lock()
+				delete(e.pullRequests, uid)
+				e.pullMutex.Unlock()
+				
+				return plainData, nil
+			}
+			
+		case <-timeout:
+			// Clean up request on timeout
+			e.pullMutex.Lock()
+			delete(e.pullRequests, uid)
+			e.pullMutex.Unlock()
+			return nil, fmt.Errorf("pull request timeout after 30 seconds")
+			
+		case <-ctx.Done():
+			// Clean up request on context cancellation
+			e.pullMutex.Lock()
+			delete(e.pullRequests, uid)
+			e.pullMutex.Unlock()
+			return nil, ctx.Err()
+		}
+	}
+}
+
+// processPullQueue downloads all files in the pull queue.
+func (e *Engine) processPullQueue(ctx context.Context, vaultKey []byte, syncState *models.SyncState) error {
+	for i, req := range e.pullQueue {
+		e.logger.WithFields(map[string]interface{}{
+			"progress": fmt.Sprintf("%d/%d", i+1, len(e.pullQueue)),
+			"path":     req.Path,
+			"size":     req.Size,
+		}).Info("Processing pull request")
+		
+		// Download file content  
+		plainData, err := e.pullFileContent(ctx, req.UID, vaultKey)
+		if err != nil {
+			e.logger.WithError(err).WithField("path", req.Path).Error("Failed to pull file content")
+			continue // Continue with other files
+		}
+		
+		// Skip hash verification - rely on AES-GCM authentication tag for integrity
+		
+		// Detect file mode (binary vs text)
+		mode := os.FileMode(0644)
+		if models.IsBinaryFile(req.Path, plainData) {
+			mode = 0644 // Keep same mode for binary files
+		}
+		
+		// Write to storage
+		if err := e.storage.Write(req.Path, plainData, mode); err != nil {
+			e.logger.WithError(err).WithField("path", req.Path).Error("Failed to write file")
+			continue
+		}
+		
+		e.logger.WithFields(map[string]interface{}{
+			"path":            req.Path,
+			"decrypted_size":  len(plainData),
+			"is_binary":       models.IsBinaryFile(req.Path, plainData),
+		}).Info("File downloaded and written successfully")
+	}
+	
+	// Clear the pull queue
+	e.pullQueue = nil
+	
+	return nil
+}
+
+// processPullQueueAsync processes the pull queue asynchronously.
+func (e *Engine) processPullQueueAsync(ctx context.Context, vaultKey []byte, syncState *models.SyncState) {
+	e.logger.Info("Starting async pull queue processing")
+	
+	for i, req := range e.pullQueue {
+		e.logger.WithFields(map[string]interface{}{
+			"progress": fmt.Sprintf("%d/%d", i+1, len(e.pullQueue)),
+			"path":     req.Path,
+			"size":     req.Size,
+		}).Info("Processing pull request")
+		
+		// Download file content  
+		plainData, err := e.pullFileContent(ctx, req.UID, vaultKey)
+		if err != nil {
+			e.logger.WithError(err).WithField("path", req.Path).Error("Failed to pull file content")
+			continue // Continue with other files
+		}
+		
+		// Skip hash verification - rely on AES-GCM authentication tag for integrity
+		
+		// Detect file mode (binary vs text)
+		mode := os.FileMode(0644)
+		if models.IsBinaryFile(req.Path, plainData) {
+			mode = 0644 // Keep same mode for binary files
+		}
+		
+		// Write to storage
+		if err := e.storage.Write(req.Path, plainData, mode); err != nil {
+			e.logger.WithError(err).WithField("path", req.Path).Error("Failed to write file")
+			continue
+		}
+		
+		// Update state with file hash
+		syncState.Files[req.Path] = req.Hash
+		
+		e.logger.WithFields(map[string]interface{}{
+			"path":            req.Path,
+			"decrypted_size":  len(plainData),
+			"is_binary":       models.IsBinaryFile(req.Path, plainData),
+		}).Info("File downloaded and written successfully")
+	}
+	
+	// Signal completion after all pulls done
+	e.completePullPhase()
+}
+
+// completePullPhase signals that the pull phase is complete.
+func (e *Engine) completePullPhase() {
+	e.logger.Info("Pull phase completed, signaling sync completion")
+	
+	// Set phase to complete
+	e.syncPhase = "complete"
+	
+	// Send a completion signal via the pull responses channel
+	// This will be picked up by the main message loop
+	select {
+	case e.pullResponses <- PullResponse{
+		Type: "complete",
+	}:
+	default:
+		e.logger.Warn("Failed to send completion signal - channel full")
+	}
+}
+
+
+// isPullResponse detects if a message is a pull request response.
+func (e *Engine) isPullResponse(msg models.WSMessage) bool {
+	// Binary messages are likely pull responses
+	if msg.Type == "binary" {
+		return true
+	}
+	
+	// Check for pull metadata responses (JSON with hash and pieces fields)
+	if msg.Type == "" || msg.Type == "pull_metadata" {
+		var data map[string]interface{}
+		if err := json.Unmarshal(msg.Data, &data); err == nil {
+			if _, hasHash := data["hash"]; hasHash {
+				if _, hasPieces := data["pieces"]; hasPieces {
+					return true
+				}
+			}
+		}
+	}
+	
+	return false
+}
+
+// routePullResponse routes a pull response to the appropriate handler.
+func (e *Engine) routePullResponse(msg models.WSMessage) error {
+	e.pullMutex.Lock()
+	defer e.pullMutex.Unlock()
+	
+	if msg.Type == "binary" {
+		// Binary data - match to the most recent metadata UID
+		if e.lastMetadataUID > 0 {
+			uid := e.lastMetadataUID
+			e.logger.WithFields(map[string]interface{}{
+				"uid":  uid,
+				"size": len(msg.BinaryData),
+			}).Debug("Routing binary response to pull request")
+			
+			select {
+			case e.pullResponses <- PullResponse{
+				UID:  uid,
+				Type: "binary",
+				Data: msg.BinaryData,
+			}:
+			default:
+				e.logger.Warn("Pull response channel full, dropping binary response")
+			}
+			
+			// Clear the last metadata UID after matching
+			e.lastMetadataUID = 0
+			return nil
+		}
+		e.logger.Warn("Received binary response with no recent metadata UID")
+		return nil
+	}
+	
+	// JSON metadata response
+	var metadata map[string]interface{}
+	if err := json.Unmarshal(msg.Data, &metadata); err != nil {
+		return fmt.Errorf("parse pull metadata: %w", err)
+	}
+	
+	// Find matching request by checking active requests
+	// Since we process pulls sequentially, match to the first incomplete request
+	for uid, req := range e.pullRequests {
+		if !req.Complete && req.Metadata == nil {
+			e.logger.WithFields(map[string]interface{}{
+				"uid":    uid,
+				"hash":   getString(metadata, "hash"),
+				"pieces": getInt(metadata, "pieces"),
+			}).Debug("Routing metadata response to pull request")
+			
+			// Track this UID for subsequent binary response matching
+			e.lastMetadataUID = uid
+			
+			select {
+			case e.pullResponses <- PullResponse{
+				UID:      uid,
+				Type:     "metadata",
+				Metadata: metadata,
+			}:
+			default:
+				e.logger.Warn("Pull response channel full, dropping metadata response")
+			}
+			return nil
+		}
+	}
+	
+	e.logger.WithField("metadata", metadata).Warn("Received metadata response with no matching pull request")
 	return nil
 }

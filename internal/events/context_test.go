@@ -6,7 +6,7 @@ import (
 	
 	"github.com/stretchr/testify/assert"
 	
-	"github.com/yourusername/obsync/internal/events"
+	"github.com/TheMichaelB/obsync/internal/events"
 )
 
 func TestFromContext(t *testing.T) {

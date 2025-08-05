@@ -92,7 +92,7 @@ obsync/
 
 ```bash
 # Initialize module
-go mod init github.com/yourusername/obsync
+go mod init github.com/TheMichaelB/obsync
 
 # Set Go version
 go mod edit -go=1.24.4
@@ -101,7 +101,7 @@ go mod edit -go=1.24.4
 Initial `go.mod`:
 
 ```go
-module github.com/yourusername/obsync
+module github.com/TheMichaelB/obsync
 
 go 1.24.4
 
@@ -133,7 +133,7 @@ import (
     "os"
 
     "github.com/spf13/cobra"
-    "github.com/yourusername/obsync/internal/config"
+    "github.com/TheMichaelB/obsync/internal/config"
 )
 
 var (
@@ -242,7 +242,7 @@ package state
 import (
     "time"
     
-    "github.com/yourusername/obsync/internal/models"
+    "github.com/TheMichaelB/obsync/internal/models"
 )
 
 // Store manages sync state persistence.
@@ -433,7 +433,7 @@ import (
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
     
-    "github.com/yourusername/obsync/internal/models"
+    "github.com/TheMichaelB/obsync/internal/models"
 )
 
 func TestNewSyncState(t *testing.T) {

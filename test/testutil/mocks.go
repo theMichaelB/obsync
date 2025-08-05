@@ -11,9 +11,9 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	"github.com/yourusername/obsync/internal/crypto"
-	"github.com/yourusername/obsync/internal/models"
-	"github.com/yourusername/obsync/internal/transport"
+	"github.com/TheMichaelB/obsync/internal/crypto"
+	"github.com/TheMichaelB/obsync/internal/models"
+	"github.com/TheMichaelB/obsync/internal/transport"
 )
 
 // MockTransport mocks the transport interface.

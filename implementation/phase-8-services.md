@@ -23,9 +23,9 @@ import (
     "fmt"
     "time"
     
-    "github.com/yourusername/obsync/internal/events"
-    "github.com/yourusername/obsync/internal/models"
-    "github.com/yourusername/obsync/internal/transport"
+    "github.com/TheMichaelB/obsync/internal/events"
+    "github.com/TheMichaelB/obsync/internal/models"
+    "github.com/TheMichaelB/obsync/internal/transport"
 )
 
 // Service handles authentication operations.
@@ -229,10 +229,10 @@ import (
     "encoding/base64"
     "fmt"
     
-    "github.com/yourusername/obsync/internal/crypto"
-    "github.com/yourusername/obsync/internal/events"
-    "github.com/yourusername/obsync/internal/models"
-    "github.com/yourusername/obsync/internal/transport"
+    "github.com/TheMichaelB/obsync/internal/crypto"
+    "github.com/TheMichaelB/obsync/internal/events"
+    "github.com/TheMichaelB/obsync/internal/models"
+    "github.com/TheMichaelB/obsync/internal/transport"
 )
 
 // Service manages vault operations.
@@ -413,12 +413,12 @@ import (
     "sync/atomic"
     "time"
     
-    "github.com/yourusername/obsync/internal/crypto"
-    "github.com/yourusername/obsync/internal/events"
-    "github.com/yourusername/obsync/internal/models"
-    "github.com/yourusername/obsync/internal/state"
-    "github.com/yourusername/obsync/internal/storage"
-    "github.com/yourusername/obsync/internal/transport"
+    "github.com/TheMichaelB/obsync/internal/crypto"
+    "github.com/TheMichaelB/obsync/internal/events"
+    "github.com/TheMichaelB/obsync/internal/models"
+    "github.com/TheMichaelB/obsync/internal/state"
+    "github.com/TheMichaelB/obsync/internal/storage"
+    "github.com/TheMichaelB/obsync/internal/transport"
 )
 
 // Engine implements the sync algorithm.
@@ -954,15 +954,15 @@ import (
     "fmt"
     "time"
     
-    "github.com/yourusername/obsync/internal/config"
-    "github.com/yourusername/obsync/internal/crypto"
-    "github.com/yourusername/obsync/internal/events"
-    "github.com/yourusername/obsync/internal/models"
-    "github.com/yourusername/obsync/internal/services/auth"
-    "github.com/yourusername/obsync/internal/services/vaults"
-    "github.com/yourusername/obsync/internal/state"
-    "github.com/yourusername/obsync/internal/storage"
-    "github.com/yourusername/obsync/internal/transport"
+    "github.com/TheMichaelB/obsync/internal/config"
+    "github.com/TheMichaelB/obsync/internal/crypto"
+    "github.com/TheMichaelB/obsync/internal/events"
+    "github.com/TheMichaelB/obsync/internal/models"
+    "github.com/TheMichaelB/obsync/internal/services/auth"
+    "github.com/TheMichaelB/obsync/internal/services/vaults"
+    "github.com/TheMichaelB/obsync/internal/state"
+    "github.com/TheMichaelB/obsync/internal/storage"
+    "github.com/TheMichaelB/obsync/internal/transport"
 )
 
 // Service provides high-level sync operations.
@@ -1069,15 +1069,15 @@ import (
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
     
-    "github.com/yourusername/obsync/internal/config"
-    "github.com/yourusername/obsync/internal/crypto"
-    "github.com/yourusername/obsync/internal/events"
-    "github.com/yourusername/obsync/internal/models"
-    "github.com/yourusername/obsync/internal/services/sync"
-    "github.com/yourusername/obsync/internal/state"
-    "github.com/yourusername/obsync/internal/storage"
-    "github.com/yourusername/obsync/internal/transport"
-    "github.com/yourusername/obsync/test/testutil"
+    "github.com/TheMichaelB/obsync/internal/config"
+    "github.com/TheMichaelB/obsync/internal/crypto"
+    "github.com/TheMichaelB/obsync/internal/events"
+    "github.com/TheMichaelB/obsync/internal/models"
+    "github.com/TheMichaelB/obsync/internal/services/sync"
+    "github.com/TheMichaelB/obsync/internal/state"
+    "github.com/TheMichaelB/obsync/internal/storage"
+    "github.com/TheMichaelB/obsync/internal/transport"
+    "github.com/TheMichaelB/obsync/test/testutil"
 )
 
 func TestSyncEngine(t *testing.T) {

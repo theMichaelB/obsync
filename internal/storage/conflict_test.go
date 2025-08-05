@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/yourusername/obsync/internal/events"
-	"github.com/yourusername/obsync/internal/storage"
+	"github.com/TheMichaelB/obsync/internal/events"
+	"github.com/TheMichaelB/obsync/internal/storage"
 )
 
 func TestConflictStrategies(t *testing.T) {

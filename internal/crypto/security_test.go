@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/yourusername/obsync/internal/crypto"
+	"github.com/TheMichaelB/obsync/internal/crypto"
 )
 
 func TestSecurityRequirements(t *testing.T) {

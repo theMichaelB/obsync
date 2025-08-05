@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 	
-	"github.com/yourusername/obsync/internal/config"
+	"github.com/TheMichaelB/obsync/internal/config"
 )
 
 // LogLevel represents logging severity.

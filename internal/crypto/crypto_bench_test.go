@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/yourusername/obsync/internal/crypto"
+	"github.com/TheMichaelB/obsync/internal/crypto"
 )
 
 func BenchmarkKeyDerivation(b *testing.B) {

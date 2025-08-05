@@ -16,8 +16,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/yourusername/obsync/internal/config"
-	"github.com/yourusername/obsync/internal/models"
+	"github.com/TheMichaelB/obsync/internal/config"
+	"github.com/TheMichaelB/obsync/internal/models"
 )
 
 // LogEntry represents a captured log entry for testing

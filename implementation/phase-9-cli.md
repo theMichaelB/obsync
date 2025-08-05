@@ -27,9 +27,9 @@ import (
     "github.com/spf13/cobra"
     "github.com/spf13/viper"
     
-    "github.com/yourusername/obsync/internal/client"
-    "github.com/yourusername/obsync/internal/config"
-    "github.com/yourusername/obsync/internal/events"
+    "github.com/TheMichaelB/obsync/internal/client"
+    "github.com/TheMichaelB/obsync/internal/config"
+    "github.com/TheMichaelB/obsync/internal/events"
 )
 
 var (
@@ -352,7 +352,7 @@ import (
     
     "github.com/spf13/cobra"
     
-    "github.com/yourusername/obsync/internal/services/sync"
+    "github.com/TheMichaelB/obsync/internal/services/sync"
 )
 
 var syncCmd = &cobra.Command{
@@ -986,7 +986,7 @@ import (
     
     "github.com/spf13/cobra"
     
-    "github.com/yourusername/obsync/internal/config"
+    "github.com/TheMichaelB/obsync/internal/config"
 )
 
 var configCmd = &cobra.Command{
@@ -1318,7 +1318,7 @@ import (
     
     "github.com/spf13/cobra"
     
-    "github.com/yourusername/obsync/internal/models"
+    "github.com/TheMichaelB/obsync/internal/models"
 )
 
 var connTestCmd = &cobra.Command{

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/yourusername/obsync/internal/crypto"
-	"github.com/yourusername/obsync/test/testutil"
+	"github.com/TheMichaelB/obsync/internal/crypto"
+	"github.com/TheMichaelB/obsync/test/testutil"
 )
 
 func BenchmarkKeyDerivation(b *testing.B) {

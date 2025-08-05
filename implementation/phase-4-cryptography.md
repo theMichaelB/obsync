@@ -360,7 +360,7 @@ import (
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
     
-    "github.com/yourusername/obsync/internal/crypto"
+    "github.com/TheMichaelB/obsync/internal/crypto"
 )
 
 func TestSecurityRequirements(t *testing.T) {
@@ -490,7 +490,7 @@ import (
     "crypto/rand"
     "testing"
     
-    "github.com/yourusername/obsync/internal/crypto"
+    "github.com/TheMichaelB/obsync/internal/crypto"
 )
 
 func BenchmarkKeyDerivation(b *testing.B) {
@@ -568,7 +568,7 @@ import (
     "encoding/base64"
     "fmt"
     
-    "github.com/yourusername/obsync/internal/crypto"
+    "github.com/TheMichaelB/obsync/internal/crypto"
 )
 
 func ExampleProvider_DeriveKey() {

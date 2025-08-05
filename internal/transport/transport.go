@@ -3,10 +3,11 @@ package transport
 import (
 	"context"
 	"fmt"
+	"time"
 
-	"github.com/yourusername/obsync/internal/config"
-	"github.com/yourusername/obsync/internal/events"
-	"github.com/yourusername/obsync/internal/models"
+	"github.com/TheMichaelB/obsync/internal/config"
+	"github.com/TheMichaelB/obsync/internal/events"
+	"github.com/TheMichaelB/obsync/internal/models"
 )
 
 // Transport combines HTTP and WebSocket functionality.
@@ -17,6 +18,9 @@ type Transport interface {
 
 	// WebSocket methods
 	StreamWS(ctx context.Context, host string, initMsg models.InitMessage) (<-chan models.WSMessage, error)
+	SendMessage(msg interface{}) error
+	ReceiveBinaryMessage(ctx context.Context, timeout time.Duration) ([]byte, error)
+	ReceiveJSONMessage(ctx context.Context, timeout time.Duration) (map[string]interface{}, error)
 
 	// Authentication
 	SetToken(token string)
@@ -76,6 +80,30 @@ func (t *DefaultTransport) StreamWS(ctx context.Context, host string, initMsg mo
 	}()
 
 	return t.wsClient.Messages(), nil
+}
+
+// SendMessage sends a message via WebSocket.
+func (t *DefaultTransport) SendMessage(msg interface{}) error {
+	if t.wsClient == nil {
+		return fmt.Errorf("websocket not connected")
+	}
+	return t.wsClient.SendMessage(msg)
+}
+
+// ReceiveBinaryMessage receives a binary message via WebSocket.
+func (t *DefaultTransport) ReceiveBinaryMessage(ctx context.Context, timeout time.Duration) ([]byte, error) {
+	if t.wsClient == nil {
+		return nil, fmt.Errorf("websocket not connected")
+	}
+	return t.wsClient.ReceiveBinaryMessage(ctx, timeout)
+}
+
+// ReceiveJSONMessage receives a JSON message via WebSocket.
+func (t *DefaultTransport) ReceiveJSONMessage(ctx context.Context, timeout time.Duration) (map[string]interface{}, error) {
+	if t.wsClient == nil {
+		return nil, fmt.Errorf("websocket not connected")
+	}
+	return t.wsClient.ReceiveJSONMessage(ctx, timeout)
 }
 
 // SetToken sets the auth token.

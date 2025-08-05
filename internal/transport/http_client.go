@@ -12,9 +12,9 @@ import (
 
 	"golang.org/x/net/http2"
 
-	"github.com/yourusername/obsync/internal/config"
-	"github.com/yourusername/obsync/internal/events"
-	"github.com/yourusername/obsync/internal/models"
+	"github.com/TheMichaelB/obsync/internal/config"
+	"github.com/TheMichaelB/obsync/internal/events"
+	"github.com/TheMichaelB/obsync/internal/models"
 )
 
 // HTTPClient handles HTTP communication with the API.

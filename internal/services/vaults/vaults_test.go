@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/yourusername/obsync/internal/crypto"
-	"github.com/yourusername/obsync/internal/services/vaults"
-	"github.com/yourusername/obsync/internal/transport"
-	"github.com/yourusername/obsync/test/testutil"
+	"github.com/TheMichaelB/obsync/internal/crypto"
+	"github.com/TheMichaelB/obsync/internal/services/vaults"
+	"github.com/TheMichaelB/obsync/internal/transport"
+	"github.com/TheMichaelB/obsync/test/testutil"
 )
 
 func TestVaultService(t *testing.T) {

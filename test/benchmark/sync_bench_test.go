@@ -9,10 +9,10 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	"github.com/yourusername/obsync/internal/models"
-	"github.com/yourusername/obsync/internal/services/sync"
-	"github.com/yourusername/obsync/internal/state"
-	"github.com/yourusername/obsync/test/testutil"
+	"github.com/TheMichaelB/obsync/internal/models"
+	"github.com/TheMichaelB/obsync/internal/services/sync"
+	"github.com/TheMichaelB/obsync/internal/state"
+	"github.com/TheMichaelB/obsync/test/testutil"
 )
 
 func BenchmarkSyncEngine(b *testing.B) {

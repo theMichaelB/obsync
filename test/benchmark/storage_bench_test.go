@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yourusername/obsync/internal/models"
-	"github.com/yourusername/obsync/internal/storage"
-	"github.com/yourusername/obsync/test/testutil"
+	"github.com/TheMichaelB/obsync/internal/models"
+	"github.com/TheMichaelB/obsync/internal/storage"
+	"github.com/TheMichaelB/obsync/test/testutil"
 )
 
 func BenchmarkBlobStoreWrite(b *testing.B) {

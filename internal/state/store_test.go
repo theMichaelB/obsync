@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/yourusername/obsync/internal/events"
-	"github.com/yourusername/obsync/internal/models"
-	"github.com/yourusername/obsync/internal/state"
+	"github.com/TheMichaelB/obsync/internal/events"
+	"github.com/TheMichaelB/obsync/internal/models"
+	"github.com/TheMichaelB/obsync/internal/state"
 )
 
 func TestJSONStore(t *testing.T) {

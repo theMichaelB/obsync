@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/yourusername/obsync/internal/events"
-	"github.com/yourusername/obsync/internal/models"
+	"github.com/TheMichaelB/obsync/internal/events"
+	"github.com/TheMichaelB/obsync/internal/models"
 )
 
 // WSClient handles WebSocket communication.
@@ -107,6 +107,7 @@ func (c *WSClient) SendInit(msg models.InitMessage) error {
 		"initial":  msg.Initial,
 		"version":  msg.Version,
 		"keyhash":  msg.Keyhash[:8] + "...", // Log first 8 chars for debugging
+		"full_message": msg,
 	}).Debug("Sending init message")
 
 	// Send init message directly as flat JSON (Obsidian protocol)
@@ -115,6 +116,99 @@ func (c *WSClient) SendInit(msg models.InitMessage) error {
 	}
 
 	return nil
+}
+
+// SendMessage sends a generic WebSocket message.
+func (c *WSClient) SendMessage(msg interface{}) error {
+	c.mu.Lock()
+	conn := c.conn
+	c.mu.Unlock()
+
+	if conn == nil {
+		return fmt.Errorf("not connected")
+	}
+
+	c.logger.WithField("message", msg).Debug("Sending WebSocket message")
+
+	if err := conn.WriteJSON(msg); err != nil {
+		return fmt.Errorf("send message: %w", err)
+	}
+
+	return nil
+}
+
+// ReceiveBinaryMessage waits for a binary WebSocket message with timeout.
+func (c *WSClient) ReceiveBinaryMessage(ctx context.Context, timeout time.Duration) ([]byte, error) {
+	c.mu.Lock()
+	conn := c.conn
+	c.mu.Unlock()
+
+	if conn == nil {
+		return nil, fmt.Errorf("not connected")
+	}
+
+	c.logger.WithField("timeout", timeout).Debug("Waiting for binary message")
+
+	// Set read deadline
+	deadline := time.Now().Add(timeout)
+	if err := conn.SetReadDeadline(deadline); err != nil {
+		return nil, fmt.Errorf("set read deadline: %w", err)
+	}
+
+	// Read binary message
+	messageType, data, err := conn.ReadMessage()
+	if err != nil {
+		return nil, fmt.Errorf("read binary message: %w", err)
+	}
+
+	if messageType != websocket.BinaryMessage {
+		return nil, fmt.Errorf("expected binary message, got message type %d", messageType)
+	}
+
+	c.logger.WithField("size", len(data)).Debug("Received binary message")
+	return data, nil
+}
+
+// ReceiveJSONMessage waits for a JSON WebSocket message with timeout.
+func (c *WSClient) ReceiveJSONMessage(ctx context.Context, timeout time.Duration) (map[string]interface{}, error) {
+	c.mu.Lock()
+	conn := c.conn
+	c.mu.Unlock()
+
+	if conn == nil {
+		return nil, fmt.Errorf("not connected")
+	}
+
+	c.logger.WithField("timeout", timeout).Debug("Waiting for JSON message")
+
+	// Set read deadline
+	deadline := time.Now().Add(timeout)
+	if err := conn.SetReadDeadline(deadline); err != nil {
+		return nil, fmt.Errorf("set read deadline: %w", err)
+	}
+
+	// Read text message
+	messageType, data, err := conn.ReadMessage()
+	if err != nil {
+		return nil, fmt.Errorf("read JSON message: %w", err)
+	}
+
+	if messageType != websocket.TextMessage {
+		return nil, fmt.Errorf("expected text message, got message type %d", messageType)
+	}
+
+	// Parse JSON
+	var result map[string]interface{}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("parse JSON message: %w", err)
+	}
+
+	c.logger.WithFields(map[string]interface{}{
+		"size": len(data),
+		"keys": len(result),
+	}).Debug("Received JSON message")
+	
+	return result, nil
 }
 
 // Messages returns the message channel.
@@ -177,9 +271,8 @@ func (c *WSClient) readLoop() {
 			return nil
 		})
 
-		// Read raw message for debugging
-		var rawMsg map[string]interface{}
-		err := conn.ReadJSON(&rawMsg)
+		// Read message with type detection
+		messageType, data, err := conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err,
 				websocket.CloseGoingAway,
@@ -190,16 +283,39 @@ func (c *WSClient) readLoop() {
 			return
 		}
 
-		c.logger.WithFields(map[string]interface{}{
-			"raw_message": rawMsg,
-		}).Debug("Received raw WebSocket message")
+		// Create appropriate message based on type
+		var msg models.WSMessage
+		
+		if messageType == websocket.BinaryMessage {
+			// Binary message - likely pull response data
+			msg = models.WSMessage{
+				Type:       "binary",
+				IsBinary:   true,
+				BinaryData: data,
+				Timestamp:  time.Now(),
+			}
+			
+			c.logger.WithField("size", len(data)).Debug("Received binary WebSocket message")
+		} else {
+			// Text message - parse as JSON
+			var rawMsg map[string]interface{}
+			if err := json.Unmarshal(data, &rawMsg); err != nil {
+				c.logger.WithError(err).Warn("Failed to parse JSON message")
+				continue
+			}
+			
+			c.logger.WithFields(map[string]interface{}{
+				"raw_message": rawMsg,
+			}).Debug("Received raw WebSocket message")
 
-		// Convert to WSMessage structure (for now, adapt as needed)
-		rawData, _ := json.Marshal(rawMsg)
-		msg := models.WSMessage{
-			Type: models.WSMessageType(getString(rawMsg, "op")),
-			UID:  getInt(rawMsg, "uid"),
-			Data: json.RawMessage(rawData),
+			// Convert to WSMessage structure
+			msgType := c.determineMessageType(rawMsg)
+			msg = models.WSMessage{
+				Type:      msgType,
+				UID:       getInt(rawMsg, "uid"),
+				Data:      json.RawMessage(data),
+				Timestamp: time.Now(),
+			}
 		}
 
 		c.logger.WithFields(map[string]interface{}{
@@ -213,6 +329,24 @@ func (c *WSClient) readLoop() {
 			return
 		}
 	}
+}
+
+// determineMessageType determines the message type from raw JSON data.
+func (c *WSClient) determineMessageType(rawMsg map[string]interface{}) models.WSMessageType {
+	// Check for "op" field first (standard Obsidian protocol)
+	if _, exists := rawMsg["op"]; exists {
+		return models.WSMessageType(getString(rawMsg, "op"))
+	}
+	
+	// Check for pull response characteristics
+	if _, hasHash := rawMsg["hash"]; hasHash {
+		if _, hasPieces := rawMsg["pieces"]; hasPieces {
+			return "pull_metadata"
+		}
+	}
+	
+	// Default to empty type for unknown messages
+	return ""
 }
 
 // Helper functions for parsing raw WebSocket messages

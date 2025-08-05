@@ -25,10 +25,14 @@ const (
 
 // WSMessage is the base WebSocket message structure.
 type WSMessage struct {
-	Type      WSMessageType   `json:"type"`
-	UID       int             `json:"uid,omitempty"`
-	Timestamp time.Time       `json:"timestamp"`
-	Data      json.RawMessage `json:"data"`
+	Type       WSMessageType   `json:"type"`
+	UID        int             `json:"uid,omitempty"`
+	Timestamp  time.Time       `json:"timestamp"`
+	Data       json.RawMessage `json:"data"`
+	
+	// Binary message support
+	IsBinary   bool   `json:"-"`  // Not serialized - internal flag
+	BinaryData []byte `json:"-"`  // Not serialized - raw binary data
 }
 
 // InitMessage sent by client to start sync (matches Obsidian protocol).

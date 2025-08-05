@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/yourusername/obsync/internal/crypto"
-	"github.com/yourusername/obsync/internal/events"
-	"github.com/yourusername/obsync/internal/services/auth"
-	"github.com/yourusername/obsync/internal/services/vaults"
-	"github.com/yourusername/obsync/internal/state"
-	"github.com/yourusername/obsync/internal/storage"
-	"github.com/yourusername/obsync/internal/transport"
+	"github.com/TheMichaelB/obsync/internal/crypto"
+	"github.com/TheMichaelB/obsync/internal/events"
+	"github.com/TheMichaelB/obsync/internal/services/auth"
+	"github.com/TheMichaelB/obsync/internal/services/vaults"
+	"github.com/TheMichaelB/obsync/internal/state"
+	"github.com/TheMichaelB/obsync/internal/storage"
+	"github.com/TheMichaelB/obsync/internal/transport"
 )
 
 // Service provides high-level sync operations.

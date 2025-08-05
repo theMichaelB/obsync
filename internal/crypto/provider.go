@@ -13,6 +13,7 @@ import (
 	
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/scrypt"
+	"golang.org/x/text/unicode/norm"
 )
 
 const (
@@ -64,9 +65,8 @@ type VaultKeyInfo struct {
 
 // normalizeText normalizes Unicode text to NFKC form (like Python's unicodedata.normalize)
 func normalizeText(s string) string {
-	// Simple NFKC normalization - Go's unicode/utf8 doesn't have full NFKC
-	// For Obsidian sync, we'll keep it simple since most passwords are ASCII
-	return s
+	// Use proper NFKC normalization to match Python's unicodedata.normalize('NFKC', text)
+	return norm.NFKC.String(s)
 }
 
 // DeriveKey derives a vault key from user credentials.

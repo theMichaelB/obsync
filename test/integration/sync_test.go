@@ -15,10 +15,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/yourusername/obsync/internal/client"
-	"github.com/yourusername/obsync/internal/config"
-	syncpkg "github.com/yourusername/obsync/internal/services/sync"
-	"github.com/yourusername/obsync/test/testutil"
+	"github.com/TheMichaelB/obsync/internal/client"
+	"github.com/TheMichaelB/obsync/internal/config"
+	syncpkg "github.com/TheMichaelB/obsync/internal/services/sync"
+	"github.com/TheMichaelB/obsync/test/testutil"
 )
 
 func TestFullSyncIntegration(t *testing.T) {

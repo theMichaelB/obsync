@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/yourusername/obsync/internal/models"
-	"github.com/yourusername/obsync/internal/services/auth"
-	"github.com/yourusername/obsync/internal/transport"
-	"github.com/yourusername/obsync/test/testutil"
+	"github.com/TheMichaelB/obsync/internal/models"
+	"github.com/TheMichaelB/obsync/internal/services/auth"
+	"github.com/TheMichaelB/obsync/internal/transport"
+	"github.com/TheMichaelB/obsync/test/testutil"
 )
 
 func TestAuthService(t *testing.T) {

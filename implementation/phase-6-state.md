@@ -21,7 +21,7 @@ import (
     "errors"
     "time"
     
-    "github.com/yourusername/obsync/internal/models"
+    "github.com/TheMichaelB/obsync/internal/models"
 )
 
 // Store manages sync state persistence.
@@ -90,8 +90,8 @@ import (
     "sync"
     "time"
     
-    "github.com/yourusername/obsync/internal/events"
-    "github.com/yourusername/obsync/internal/models"
+    "github.com/TheMichaelB/obsync/internal/events"
+    "github.com/TheMichaelB/obsync/internal/models"
 )
 
 // JSONStore implements file-based state storage.
@@ -403,8 +403,8 @@ import (
     
     _ "github.com/mattn/go-sqlite3"
     
-    "github.com/yourusername/obsync/internal/events"
-    "github.com/yourusername/obsync/internal/models"
+    "github.com/TheMichaelB/obsync/internal/events"
+    "github.com/TheMichaelB/obsync/internal/models"
 )
 
 // SQLiteStore implements SQLite-based state storage.
@@ -685,10 +685,10 @@ import (
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
     
-    "github.com/yourusername/obsync/internal/config"
-    "github.com/yourusername/obsync/internal/events"
-    "github.com/yourusername/obsync/internal/models"
-    "github.com/yourusername/obsync/internal/state"
+    "github.com/TheMichaelB/obsync/internal/config"
+    "github.com/TheMichaelB/obsync/internal/events"
+    "github.com/TheMichaelB/obsync/internal/models"
+    "github.com/TheMichaelB/obsync/internal/state"
 )
 
 func TestJSONStore(t *testing.T) {

@@ -55,7 +55,7 @@ import (
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
     
-    "github.com/yourusername/obsync/internal/models"
+    "github.com/TheMichaelB/obsync/internal/models"
 )
 
 func TestVault_Validate(t *testing.T) {
@@ -168,9 +168,9 @@ import (
     "github.com/stretchr/testify/mock"
     "github.com/stretchr/testify/require"
     
-    "github.com/yourusername/obsync/internal/models"
-    "github.com/yourusername/obsync/internal/services/sync"
-    "github.com/yourusername/obsync/test/testutil"
+    "github.com/TheMichaelB/obsync/internal/models"
+    "github.com/TheMichaelB/obsync/internal/services/sync"
+    "github.com/TheMichaelB/obsync/test/testutil"
 )
 
 func TestEngine_Sync_Success(t *testing.T) {
@@ -372,9 +372,9 @@ import (
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
     
-    "github.com/yourusername/obsync/internal/client"
-    "github.com/yourusername/obsync/internal/config"
-    "github.com/yourusername/obsync/test/testutil"
+    "github.com/TheMichaelB/obsync/internal/client"
+    "github.com/TheMichaelB/obsync/internal/config"
+    "github.com/TheMichaelB/obsync/test/testutil"
 )
 
 func TestFullSyncIntegration(t *testing.T) {
@@ -557,7 +557,7 @@ import (
     "crypto/rand"
     "testing"
     
-    "github.com/yourusername/obsync/internal/crypto"
+    "github.com/TheMichaelB/obsync/internal/crypto"
 )
 
 func BenchmarkKeyDerivation(b *testing.B) {
@@ -676,8 +676,8 @@ import (
     "fmt"
     "testing"
     
-    "github.com/yourusername/obsync/internal/services/sync"
-    "github.com/yourusername/obsync/test/testutil"
+    "github.com/TheMichaelB/obsync/internal/services/sync"
+    "github.com/TheMichaelB/obsync/test/testutil"
 )
 
 func BenchmarkSyncEngine(b *testing.B) {
@@ -787,7 +787,7 @@ import (
     
     "github.com/stretchr/testify/mock"
     
-    "github.com/yourusername/obsync/internal/models"
+    "github.com/TheMichaelB/obsync/internal/models"
 )
 
 // MockTransport mocks the transport interface.
@@ -902,7 +902,7 @@ import (
     "os"
     "path/filepath"
     
-    "github.com/yourusername/obsync/internal/models"
+    "github.com/TheMichaelB/obsync/internal/models"
 )
 
 // Fixture represents test vault data.

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/yourusername/obsync/internal/models"
+	"github.com/TheMichaelB/obsync/internal/models"
 )
 
 // Store manages sync state persistence.

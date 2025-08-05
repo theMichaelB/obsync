@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yourusername/obsync/internal/events"
+	"github.com/TheMichaelB/obsync/internal/events"
 )
 
 // LocalStore implements file system operations.

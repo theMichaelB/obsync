@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	
-	"github.com/yourusername/obsync/internal/config"
-	"github.com/yourusername/obsync/internal/events"
+	"github.com/TheMichaelB/obsync/internal/config"
+	"github.com/TheMichaelB/obsync/internal/events"
 )
 
 func TestNewLogger(t *testing.T) {

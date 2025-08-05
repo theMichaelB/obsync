@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yourusername/obsync/internal/models"
+	"github.com/TheMichaelB/obsync/internal/models"
 )
 
 // MockTransport provides a mock implementation for testing.
@@ -229,4 +229,24 @@ func (m *MockTransport) AddDelayedMessage(msg models.WSMessage, delay time.Durat
 	// For simplicity, just add the message normally
 	// In a real implementation, we'd handle delays
 	m.WSMessages = append(m.WSMessages, msg)
+}
+
+// SendMessage mocks sending a WebSocket message.
+func (m *MockTransport) SendMessage(msg interface{}) error {
+	// Mock implementation - just return success
+	return nil
+}
+
+// ReceiveBinaryMessage mocks receiving binary message.
+func (m *MockTransport) ReceiveBinaryMessage(ctx context.Context, timeout time.Duration) ([]byte, error) {
+	return []byte("mock binary data"), nil
+}
+
+// ReceiveJSONMessage mocks receiving JSON message.
+func (m *MockTransport) ReceiveJSONMessage(ctx context.Context, timeout time.Duration) (map[string]interface{}, error) {
+	return map[string]interface{}{
+		"hash":   "mock_hash",
+		"size":   100,
+		"pieces": 1,
+	}, nil
 }

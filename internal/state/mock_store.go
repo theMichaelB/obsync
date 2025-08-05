@@ -3,7 +3,7 @@ package state
 import (
 	"sync"
 
-	"github.com/yourusername/obsync/internal/models"
+	"github.com/TheMichaelB/obsync/internal/models"
 )
 
 // MockStore provides a mock implementation for testing.

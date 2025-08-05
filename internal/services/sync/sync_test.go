@@ -13,13 +13,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/yourusername/obsync/internal/crypto"
-	"github.com/yourusername/obsync/internal/models"
-	"github.com/yourusername/obsync/internal/services/sync"
-	"github.com/yourusername/obsync/internal/state"
-	"github.com/yourusername/obsync/internal/storage"
-	"github.com/yourusername/obsync/internal/transport"
-	"github.com/yourusername/obsync/test/testutil"
+	"github.com/TheMichaelB/obsync/internal/crypto"
+	"github.com/TheMichaelB/obsync/internal/models"
+	"github.com/TheMichaelB/obsync/internal/services/sync"
+	"github.com/TheMichaelB/obsync/internal/state"
+	"github.com/TheMichaelB/obsync/internal/storage"
+	"github.com/TheMichaelB/obsync/internal/transport"
+	"github.com/TheMichaelB/obsync/test/testutil"
 )
 
 func TestSyncEngine(t *testing.T) {

@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"time"
 	
-	"github.com/yourusername/obsync/internal/events"
-	"github.com/yourusername/obsync/internal/models"
+	"github.com/TheMichaelB/obsync/internal/events"
+	"github.com/TheMichaelB/obsync/internal/models"
 )
 
 // NewTestLogger creates a logger for testing.

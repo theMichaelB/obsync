@@ -5,16 +5,16 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/yourusername/obsync/internal/config"
-	"github.com/yourusername/obsync/internal/crypto"
-	"github.com/yourusername/obsync/internal/events"
-	"github.com/yourusername/obsync/internal/models"
-	"github.com/yourusername/obsync/internal/services/auth"
-	"github.com/yourusername/obsync/internal/services/sync"
-	"github.com/yourusername/obsync/internal/services/vaults"
-	"github.com/yourusername/obsync/internal/state"
-	"github.com/yourusername/obsync/internal/storage"
-	"github.com/yourusername/obsync/internal/transport"
+	"github.com/TheMichaelB/obsync/internal/config"
+	"github.com/TheMichaelB/obsync/internal/crypto"
+	"github.com/TheMichaelB/obsync/internal/events"
+	"github.com/TheMichaelB/obsync/internal/models"
+	"github.com/TheMichaelB/obsync/internal/services/auth"
+	"github.com/TheMichaelB/obsync/internal/services/sync"
+	"github.com/TheMichaelB/obsync/internal/services/vaults"
+	"github.com/TheMichaelB/obsync/internal/state"
+	"github.com/TheMichaelB/obsync/internal/storage"
+	"github.com/TheMichaelB/obsync/internal/transport"
 )
 
 // Client provides the high-level API for Obsync operations.

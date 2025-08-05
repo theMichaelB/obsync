@@ -373,7 +373,7 @@ import (
     "sync"
     "time"
     
-    "github.com/yourusername/obsync/internal/config"
+    "github.com/TheMichaelB/obsync/internal/config"
 )
 
 // LogLevel represents logging severity.
@@ -743,8 +743,8 @@ import (
     "os"
     
     "github.com/spf13/cobra"
-    "github.com/yourusername/obsync/internal/config"
-    "github.com/yourusername/obsync/internal/events"
+    "github.com/TheMichaelB/obsync/internal/config"
+    "github.com/TheMichaelB/obsync/internal/events"
 )
 
 var (
@@ -815,8 +815,8 @@ import (
     "fmt"
     "time"
     
-    "github.com/yourusername/obsync/internal/events"
-    "github.com/yourusername/obsync/internal/models"
+    "github.com/TheMichaelB/obsync/internal/events"
+    "github.com/TheMichaelB/obsync/internal/models"
 )
 
 type Service struct {
@@ -900,7 +900,7 @@ import (
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
     
-    "github.com/yourusername/obsync/internal/config"
+    "github.com/TheMichaelB/obsync/internal/config"
 )
 
 func TestDefaultConfig(t *testing.T) {
