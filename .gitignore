@@ -40,5 +40,29 @@ build/
 
 # Local config
 .env
-.env.local
+.env.*
 config.local.json
+
+# Secrets and credentials - NEVER COMMIT
+config.json
+obsync.json
+credentials/
+!credentials/*.template.json
+creds.txt
+*.key
+*.pem
+*.p12
+*.pfx
+token.json
+vault_credentials.json
+!vault_credentials.template.json
+
+# Authentication files
+obsync.json
+config.json
+
+# TOTP secrets
+totp_secret*
+*secret*
+*password*
+*credential*
