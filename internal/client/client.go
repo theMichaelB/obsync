@@ -3,7 +3,6 @@ package client
 import (
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/TheMichaelB/obsync/internal/config"
 	"github.com/TheMichaelB/obsync/internal/crypto"
@@ -63,11 +62,7 @@ func New(cfg *config.Config, logger *events.Logger) (*Client, error) {
 		tokenFile = filepath.Join(cfg.Storage.StateDir, "auth", "token.json")
 	}
 	
-	// Expand tilde in path
-	if strings.HasPrefix(tokenFile, "~/") {
-		homeDir, _ := os.UserHomeDir()
-		tokenFile = filepath.Join(homeDir, tokenFile[2:])
-	}
+	// Note: No tilde expansion needed - using current directory paths
 	
 	// Ensure token directory exists
 	tokenDir := filepath.Dir(tokenFile)

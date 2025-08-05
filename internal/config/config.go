@@ -95,8 +95,7 @@ type DevConfig struct {
 
 // DefaultConfig returns config with sensible defaults.
 func DefaultConfig() *Config {
-	homeDir, _ := os.UserHomeDir()
-	dataDir := filepath.Join(homeDir, ".obsync")
+	dataDir := ".obsync"
 	
 	return &Config{
 		API: APIConfig{

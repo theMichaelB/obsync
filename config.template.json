@@ -9,13 +9,13 @@
     "email": "REPLACE_WITH_YOUR_EMAIL",
     "password": "REPLACE_WITH_YOUR_PASSWORD", 
     "totp_secret": "REPLACE_WITH_YOUR_TOTP_SECRET",
-    "token_file": "~/.obsync/token.json",
+    "token_file": "./.obsync/token.json",
     "vault_credentials_file": "./credentials/vault_credentials.json"
   },
   "storage": {
-    "data_dir": "~/.obsync",
-    "state_dir": "~/.obsync/state",
-    "temp_dir": "~/.obsync/temp",
+    "data_dir": "./.obsync",
+    "state_dir": "./.obsync/state",
+    "temp_dir": "./.obsync/temp",
     "max_file_size": 104857600
   },
   "sync": {

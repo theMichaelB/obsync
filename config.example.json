@@ -14,15 +14,15 @@
     "email": "your.email@example.com",
     "password": "your_obsidian_password",
     "totp_secret": "YOUR_TOTP_SECRET_FROM_OBSIDIAN_ACCOUNT",
-    "token_file": "~/.obsync/token.json",
-    "vault_credentials_file": "~/.obsync/vault_credentials.json"
+    "token_file": "./.obsync/token.json",
+    "vault_credentials_file": "./.obsync/vault_credentials.json"
   },
   
   "storage": {
     "_comment": "Local storage paths and limits",
-    "data_dir": "~/.obsync",
-    "state_dir": "~/.obsync/state",
-    "temp_dir": "~/.obsync/temp",
+    "data_dir": "./.obsync",
+    "state_dir": "./.obsync/state",
+    "temp_dir": "./.obsync/temp",
     "max_file_size": 104857600
   },
   
@@ -52,7 +52,7 @@
   "dev": {
     "_comment": "Development/debugging options (optional)",
     "save_websocket_trace": false,
-    "trace_path": "~/.obsync/traces",
+    "trace_path": "./.obsync/traces",
     "insecure_skip_verify": false
   }
 }

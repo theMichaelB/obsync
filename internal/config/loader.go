@@ -62,19 +62,12 @@ func (l *Loader) Load() (*Config, error) {
 
 // defaultPaths returns default config file locations.
 func (l *Loader) defaultPaths() []string {
-	paths := []string{
+	return []string{
 		"obsync.json",
 		".obsync.json",
+		"config.json",
+		".obsync/config.json",
 	}
-	
-	if homeDir, err := os.UserHomeDir(); err == nil {
-		paths = append(paths,
-			filepath.Join(homeDir, ".config", "obsync", "config.json"),
-			filepath.Join(homeDir, ".obsync", "config.json"),
-		)
-	}
-	
-	return paths
 }
 
 // loadFile reads config from JSON file.
