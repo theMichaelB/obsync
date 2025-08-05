@@ -1,8 +1,8 @@
 {
-  "_comment": "Obsync Configuration File - Copy to config.json and fill in your values",
+  "_comment": "Example configuration with sample values - Copy to config.json and replace with your actual credentials",
   
   "api": {
-    "_comment": "Obsidian API settings",
+    "_comment": "Obsidian API settings - these defaults usually don't need changing",
     "base_url": "https://api.obsidian.md",
     "timeout": "30s",
     "max_retries": 3,
@@ -10,26 +10,29 @@
   },
   
   "auth": {
-    "_comment": "Authentication configuration",
-    "email": "your.email@example.com",
-    "password": "your_obsidian_password",
-    "totp_secret": "YOUR_TOTP_SECRET_FROM_OBSIDIAN_ACCOUNT",
+    "_comment": "Your Obsidian account credentials",
+    "email": "john.doe@example.com",
+    "password": "MySecureP@ssw0rd123!",
+    "totp_secret": "JBSWY3DPEHPK3PXP",
+    "_totp_comment": "Get TOTP secret from Obsidian Settings > Account > Two-factor authentication",
     "token_file": "./.obsync/token.json",
-    "vault_credentials_file": "./.obsync/vault_credentials.json"
+    "vault_credentials_file": "./vault_credentials.example.json"
   },
   
   "storage": {
-    "_comment": "Local storage paths and limits",
-    "data_dir": "./.obsync",
+    "_comment": "Where to store synced vaults and state data",
+    "data_dir": "./my-obsidian-vaults",
     "state_dir": "./.obsync/state",
     "temp_dir": "./.obsync/temp",
-    "max_file_size": 104857600
+    "max_file_size": 104857600,
+    "_size_comment": "104857600 = 100MB max file size"
   },
   
   "sync": {
-    "_comment": "Synchronization behavior",
-    "base_dir": "./vaults",
+    "_comment": "Sync performance and behavior settings",
+    "base_dir": "./synced-vaults",
     "chunk_size": 1048576,
+    "_chunk_comment": "1048576 = 1MB chunks for downloads",
     "max_concurrent": 5,
     "retry_attempts": 3,
     "retry_delay": "1s",
@@ -40,8 +43,11 @@
   "log": {
     "_comment": "Logging configuration",
     "level": "info",
+    "_level_options": "debug, info, warn, error",
     "format": "text",
-    "file": "",
+    "_format_options": "text, json",
+    "file": "./obsync.log",
+    "_file_comment": "Leave empty to disable file logging",
     "max_size": 10,
     "max_backups": 3,
     "max_age": 7,
