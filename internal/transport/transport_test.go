@@ -91,15 +91,9 @@ func TestWebSocketConnection(t *testing.T) {
 		require.NoError(t, err)
 		defer conn.Close()
 
-		// Read init message
-		var msg models.WSMessage
-		err = conn.ReadJSON(&msg)
-		require.NoError(t, err)
-		assert.Equal(t, models.WSTypeInit, msg.Type)
-
-		// Parse init data
+		// Read init message (sent as flat JSON)
 		var initMsg models.InitMessage
-		err = json.Unmarshal(msg.Data, &initMsg)
+		err = conn.ReadJSON(&initMsg)
 		require.NoError(t, err)
 		assert.Equal(t, "vault-123", initMsg.ID)
 

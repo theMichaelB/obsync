@@ -66,10 +66,10 @@ func BenchmarkSyncEngine(b *testing.B) {
 			
 			for i := 0; i < b.N; i++ {
 				mockTransport.Reset()
-				mockState.Reset()
+				mockState.ResetAll()
 				mockStorage.Reset()
 				
-				err := engine.Sync(ctx, "bench-vault", vaultKey, true)
+				err := engine.Sync(ctx, "bench-vault", "test-host", vaultKey, 0, true)
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -130,7 +130,7 @@ func BenchmarkConcurrentFileProcessing(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				mockTransport.Reset()
 				
-				err := engine.Sync(ctx, "bench-vault", vaultKey, true)
+				err := engine.Sync(ctx, "bench-vault", "test-host", vaultKey, 0, true)
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -196,7 +196,7 @@ func BenchmarkSyncEngineFileSizes(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				mockTransport.Reset()
 				
-				err := engine.Sync(ctx, "bench-vault", vaultKey, true)
+				err := engine.Sync(ctx, "bench-vault", "test-host", vaultKey, 0, true)
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -258,7 +258,7 @@ func BenchmarkIncrementalSync(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		mockTransport.Reset()
 		
-		err := engine.Sync(ctx, "bench-vault", vaultKey, false) // Incremental
+		err := engine.Sync(ctx, "bench-vault", "test-host", vaultKey, 0, false) // Incremental
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -318,7 +318,7 @@ func BenchmarkSyncProgress(b *testing.B) {
 			}
 		}()
 		
-		err := engine.Sync(ctx, "bench-vault", vaultKey, true)
+		err := engine.Sync(ctx, "bench-vault", "test-host", vaultKey, 0, true)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -376,7 +376,7 @@ func BenchmarkSyncCancel(b *testing.B) {
 		// Start sync
 		syncDone := make(chan error, 1)
 		go func() {
-			syncDone <- engine.Sync(ctx, "bench-vault", vaultKey, true)
+			syncDone <- engine.Sync(ctx, "bench-vault", "test-host", vaultKey, 0, true)
 		}()
 		
 		// Cancel after short delay
@@ -553,7 +553,7 @@ func BenchmarkRealisticSyncWorkload(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		mockTransport.Reset()
 		
-		err := engine.Sync(ctx, "bench-vault", vaultKey, true)
+		err := engine.Sync(ctx, "bench-vault", "test-host", vaultKey, 0, true)
 		if err != nil {
 			b.Fatal(err)
 		}

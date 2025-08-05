@@ -120,7 +120,7 @@ func TestSyncEngine(t *testing.T) {
 
 		// Run sync
 		ctx := context.Background()
-		err = engine.Sync(ctx, vaultID, vaultKey, true)
+		err = engine.Sync(ctx, vaultID, "test-host", vaultKey, 0, true)
 		require.NoError(t, err)
 
 		// Wait for events to be processed
@@ -224,7 +224,7 @@ func TestSyncEngine(t *testing.T) {
 
 		// Run incremental sync
 		ctx := context.Background()
-		err = freshEngine.Sync(ctx, vaultID, vaultKey, false)
+		err = freshEngine.Sync(ctx, vaultID, "test-host", vaultKey, 0, false)
 		require.NoError(t, err)
 
 		// Wait for events
@@ -270,7 +270,7 @@ func TestSyncCancellation(t *testing.T) {
 
 	syncDone := make(chan error, 1)
 	go func() {
-		err := engine.Sync(ctx, "test-vault", vaultKey, true)
+		err := engine.Sync(ctx, "test-vault", "test-host", vaultKey, 0, true)
 		syncDone <- err
 	}()
 
@@ -335,7 +335,7 @@ func TestSyncProgress(t *testing.T) {
 
 	syncDone := make(chan error, 1)
 	go func() {
-		err := engine.Sync(ctx, "test-vault", vaultKey, true)
+		err := engine.Sync(ctx, "test-vault", "test-host", vaultKey, 0, true)
 		syncDone <- err
 	}()
 
@@ -394,7 +394,7 @@ func TestSyncErrorHandling(t *testing.T) {
 		})
 
 		ctx := context.Background()
-		err := freshEngine.Sync(ctx, "test-vault", vaultKey, true)
+		err := freshEngine.Sync(ctx, "test-vault", "test-host", vaultKey, 0, true)
 		assert.Error(t, err)
 		if err != nil {
 			assert.Contains(t, err.Error(), "VAULT_LOCKED")
@@ -422,7 +422,7 @@ func TestSyncErrorHandling(t *testing.T) {
 		})
 
 		ctx := context.Background()
-		err := freshEngine.Sync(ctx, "invalid-vault", vaultKey, true)
+		err := freshEngine.Sync(ctx, "invalid-vault", "test-host", vaultKey, 0, true)
 		// Init failure should return an error
 		// Note: Due to test timing, the error might not always propagate
 		// The important thing is that the init response handler catches it

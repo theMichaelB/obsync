@@ -343,6 +343,11 @@ func (c *WSClient) determineMessageType(rawMsg map[string]interface{}) models.WS
 		return models.WSMessageType(getString(rawMsg, "op"))
 	}
 	
+	// Check for "type" field (test messages and internal format)
+	if _, exists := rawMsg["type"]; exists {
+		return models.WSMessageType(getString(rawMsg, "type"))
+	}
+	
 	// Check for pull response characteristics
 	if _, hasHash := rawMsg["hash"]; hasHash {
 		if _, hasPieces := rawMsg["pieces"]; hasPieces {

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"sync"
 	"time"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/TheMichaelB/obsync/internal/crypto"
 	"github.com/TheMichaelB/obsync/internal/models"
+	"github.com/TheMichaelB/obsync/internal/state"
+	"github.com/TheMichaelB/obsync/internal/storage"
 	"github.com/TheMichaelB/obsync/internal/transport"
 )
 
@@ -38,8 +41,8 @@ func (m *MockTransport) PostJSON(ctx context.Context, path string, payload inter
 	return nil, args.Error(1)
 }
 
-func (m *MockTransport) StreamWS(ctx context.Context, initMsg models.InitMessage) (<-chan models.WSMessage, error) {
-	args := m.Called(ctx, initMsg)
+func (m *MockTransport) StreamWS(ctx context.Context, host string, initMsg models.InitMessage) (<-chan models.WSMessage, error) {
+	args := m.Called(ctx, host, initMsg)
 	
 	if args.Error(1) != nil {
 		return nil, args.Error(1)
@@ -85,6 +88,49 @@ func (m *MockTransport) Reset() {
 	m.index = 0
 }
 
+func (m *MockTransport) DownloadChunk(ctx context.Context, chunkID string) ([]byte, error) {
+	args := m.Called(ctx, chunkID)
+	if data := args.Get(0); data != nil {
+		return data.([]byte), args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
+func (m *MockTransport) SendMessage(msg interface{}) error {
+	args := m.Called(msg)
+	return args.Error(0)
+}
+
+func (m *MockTransport) ReceiveBinaryMessage(ctx context.Context, timeout time.Duration) ([]byte, error) {
+	args := m.Called(ctx, timeout)
+	if data := args.Get(0); data != nil {
+		return data.([]byte), args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
+func (m *MockTransport) ReceiveJSONMessage(ctx context.Context, timeout time.Duration) (map[string]interface{}, error) {
+	args := m.Called(ctx, timeout)
+	if data := args.Get(0); data != nil {
+		return data.(map[string]interface{}), args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
+func (m *MockTransport) SetToken(token string) {
+	m.Called(token)
+}
+
+func (m *MockTransport) GetToken() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+func (m *MockTransport) Close() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
 // MockCryptoProvider mocks crypto operations.
 type MockCryptoProvider struct {
 	mock.Mock
@@ -121,6 +167,14 @@ func (m *MockCryptoProvider) EncryptData(plaintext, key []byte) ([]byte, error) 
 		return data.([]byte), args.Error(1)
 	}
 	return nil, args.Error(1)
+}
+
+func (m *MockCryptoProvider) DerivePathKey(vaultKey []byte) []byte {
+	args := m.Called(vaultKey)
+	if key := args.Get(0); key != nil {
+		return key.([]byte)
+	}
+	return nil
 }
 
 // MockStateStore mocks state persistence.
@@ -174,10 +228,33 @@ func (m *MockStateStore) List() ([]string, error) {
 	return nil, args.Error(1)
 }
 
-func (m *MockStateStore) Reset() {
+func (m *MockStateStore) ResetAll() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.states = make(map[string]*models.SyncState)
+}
+
+func (m *MockStateStore) Lock(vaultID string) (state.UnlockFunc, error) {
+	args := m.Called(vaultID)
+	if unlock := args.Get(0); unlock != nil {
+		return unlock.(state.UnlockFunc), args.Error(1)
+	}
+	return func() {}, args.Error(1)
+}
+
+func (m *MockStateStore) Migrate(target state.Store) error {
+	args := m.Called(target)
+	return args.Error(0)
+}
+
+func (m *MockStateStore) Reset(vaultID string) error {
+	args := m.Called(vaultID)
+	return args.Error(0)
+}
+
+func (m *MockStateStore) Close() error {
+	args := m.Called()
+	return args.Error(0)
 }
 
 // MockBlobStore mocks blob storage operations.
@@ -201,6 +278,11 @@ func (m *MockBlobStore) Write(path string, data []byte, mode os.FileMode) error 
 	m.data[path] = make([]byte, len(data))
 	copy(m.data[path], data)
 	
+	return args.Error(0)
+}
+
+func (m *MockBlobStore) WriteStream(path string, reader io.Reader, mode os.FileMode) error {
+	args := m.Called(path, reader, mode)
 	return args.Error(0)
 }
 
@@ -231,6 +313,37 @@ func (m *MockBlobStore) Exists(path string) (bool, error) {
 func (m *MockBlobStore) Size(path string) (int64, error) {
 	args := m.Called(path)
 	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *MockBlobStore) Stat(path string) (storage.FileInfo, error) {
+	args := m.Called(path)
+	if info := args.Get(0); info != nil {
+		return info.(storage.FileInfo), args.Error(1)
+	}
+	return storage.FileInfo{}, args.Error(1)
+}
+
+func (m *MockBlobStore) ListDir(path string) ([]storage.FileInfo, error) {
+	args := m.Called(path)
+	if files := args.Get(0); files != nil {
+		return files.([]storage.FileInfo), args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
+func (m *MockBlobStore) Move(oldPath, newPath string) error {
+	args := m.Called(oldPath, newPath)
+	return args.Error(0)
+}
+
+func (m *MockBlobStore) SetModTime(path string, modTime time.Time) error {
+	args := m.Called(path, modTime)
+	return args.Error(0)
+}
+
+func (m *MockBlobStore) EnsureDir(path string) error {
+	args := m.Called(path)
+	return args.Error(0)
 }
 
 func (m *MockBlobStore) Reset() {

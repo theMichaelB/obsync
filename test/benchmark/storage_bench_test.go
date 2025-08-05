@@ -130,7 +130,7 @@ func BenchmarkBlobStoreOperations(b *testing.B) {
 		b.ReportAllocs()
 		
 		for i := 0; i < b.N; i++ {
-			_, err := store.Size(path)
+			_, err := store.Stat(path)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -182,7 +182,7 @@ func BenchmarkAtomicWrites(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				path := fmt.Sprintf("bench/atomic_%d.dat", i)
 				err := store.Write(path, data, mode)
-				if err != nil && mode != os.FileModeUpdate { // Update might fail if file doesn't exist
+				if err != nil && mode != 0600 { // Update might fail if file doesn't exist
 					b.Fatal(err)
 				}
 			}
@@ -259,9 +259,9 @@ func BenchmarkConcurrentAccess(b *testing.B) {
 				case 2: // Exists
 					path := fmt.Sprintf("bench/concurrent_%d.dat", i%100)
 					store.Exists(path)
-				case 3: // Size
+				case 3: // Stat
 					path := fmt.Sprintf("bench/concurrent_%d.dat", i%100)
-					store.Size(path)
+					store.Stat(path)
 				}
 				i++
 			}
@@ -372,7 +372,7 @@ func BenchmarkBinaryDetection(b *testing.B) {
 			b.SetBytes(int64(len(test.data)))
 			
 			for i := 0; i < b.N; i++ {
-				models.IsBinary(test.data)
+				models.IsBinaryFile("test.txt", test.data)
 			}
 		})
 	}
