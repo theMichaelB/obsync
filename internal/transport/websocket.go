@@ -2,6 +2,7 @@ package transport
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync"
@@ -194,9 +195,11 @@ func (c *WSClient) readLoop() {
 		}).Debug("Received raw WebSocket message")
 
 		// Convert to WSMessage structure (for now, adapt as needed)
+		rawData, _ := json.Marshal(rawMsg)
 		msg := models.WSMessage{
 			Type: models.WSMessageType(getString(rawMsg, "op")),
 			UID:  getInt(rawMsg, "uid"),
+			Data: json.RawMessage(rawData),
 		}
 
 		c.logger.WithFields(map[string]interface{}{

@@ -199,11 +199,8 @@ func (p *CryptoProvider) DecryptPath(hexPath string, vaultKey []byte) (string, e
 		return "", fmt.Errorf("decode hex path: %w", err)
 	}
 	
-	// Path encryption uses derived keys
-	pathKey := p.derivePathKey(vaultKey)
-	
-	// Decrypt the full path
-	decrypted, err := p.DecryptData(encrypted, pathKey)
+	// Use vault key directly for path decryption (matches Python implementation)
+	decrypted, err := p.DecryptData(encrypted, vaultKey)
 	if err != nil {
 		return "", fmt.Errorf("decrypt path: %w", err)
 	}

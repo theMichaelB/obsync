@@ -29,6 +29,7 @@ var (
 	ErrIntegrityCheckFail = errors.New("integrity check failed")
 	ErrRateLimited        = errors.New("rate limited")
 	ErrConnectionLost     = errors.New("connection lost")
+	ErrSyncComplete       = errors.New("sync completed successfully")
 )
 
 // APIError represents an error from the API.
