@@ -1,64 +1,90 @@
 {
-  "_comment": "Example configuration with sample values - Copy to config.json and replace with your actual credentials",
+  "_comment": "Complete configuration example with all options and their defaults",
+  "_usage": "Copy to config.json and modify. Only 'auth.email' and 'auth.password' are required.",
   
   "api": {
-    "_comment": "Obsidian API settings - these defaults usually don't need changing",
+    "_comment": "API settings - ALL OPTIONAL with these defaults",
     "base_url": "https://api.obsidian.md",
+    "_base_url": "DEFAULT: https://api.obsidian.md",
     "timeout": "30s",
+    "_timeout": "DEFAULT: 30s",
     "max_retries": 3,
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) obsidian/1.8.10 Chrome/132.0.6834.196 Electron/34.2.0 Safari/537.36"
+    "_max_retries": "DEFAULT: 3",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) obsidian/1.8.10 Chrome/132.0.6834.196 Electron/34.2.0 Safari/537.36",
+    "_user_agent": "DEFAULT: Obsidian desktop user agent"
   },
   
   "auth": {
-    "_comment": "Your Obsidian account credentials",
+    "_comment": "Authentication - email and password are REQUIRED",
     "email": "john.doe@example.com",
+    "_email": "REQUIRED - Your Obsidian account email",
     "password": "MySecureP@ssw0rd123!",
+    "_password": "REQUIRED - Your Obsidian account password",
     "totp_secret": "JBSWY3DPEHPK3PXP",
-    "_totp_comment": "Get TOTP secret from Obsidian Settings > Account > Two-factor authentication",
-    "token_file": "./.obsync/token.json",
-    "vault_credentials_file": "./vault_credentials.example.json"
+    "_totp_secret": "OPTIONAL - For 2FA, get from Obsidian Settings > Account > Two-factor authentication",
+    "token_file": "./.obsync/auth/token.json",
+    "_token_file": "DEFAULT: .obsync/auth/token.json - Where to cache auth token",
+    "vault_credentials_file": "./vault_credentials.json",
+    "_vault_credentials_file": "OPTIONAL - Path to vault passwords file"
   },
   
   "storage": {
-    "_comment": "Where to store synced vaults and state data",
-    "data_dir": "./my-obsidian-vaults",
+    "_comment": "Storage paths - ALL OPTIONAL with these defaults",
+    "data_dir": "./.obsync",
+    "_data_dir": "DEFAULT: .obsync - Base directory for all data",
     "state_dir": "./.obsync/state",
+    "_state_dir": "DEFAULT: .obsync/state - Sync state storage",
     "temp_dir": "./.obsync/temp",
+    "_temp_dir": "DEFAULT: .obsync/temp - Temporary files during sync",
     "max_file_size": 104857600,
-    "_size_comment": "104857600 = 100MB max file size"
+    "_max_file_size": "DEFAULT: 104857600 (100MB) - Maximum file size to sync"
   },
   
   "sync": {
-    "_comment": "Sync performance and behavior settings",
-    "base_dir": "./synced-vaults",
+    "_comment": "Sync settings - ALL OPTIONAL with these defaults",
+    "base_dir": "./vaults",
+    "_base_dir": "DEFAULT: ./vaults - Where to store synced vaults",
     "chunk_size": 1048576,
-    "_chunk_comment": "1048576 = 1MB chunks for downloads",
+    "_chunk_size": "DEFAULT: 1048576 (1MB) - Download chunk size",
     "max_concurrent": 5,
+    "_max_concurrent": "DEFAULT: 5 - Parallel download threads",
     "retry_attempts": 3,
+    "_retry_attempts": "DEFAULT: 3 - Retries for failed operations",
     "retry_delay": "1s",
+    "_retry_delay": "DEFAULT: 1s - Delay between retries",
     "progress_interval": "500ms",
-    "validate_checksums": true
+    "_progress_interval": "DEFAULT: 500ms - Progress update frequency",
+    "validate_checksums": true,
+    "_validate_checksums": "DEFAULT: true - Verify file integrity after download"
   },
   
   "log": {
-    "_comment": "Logging configuration",
+    "_comment": "Logging - ALL OPTIONAL with these defaults",
     "level": "info",
-    "_level_options": "debug, info, warn, error",
+    "_level": "DEFAULT: info - Options: debug, info, warn, error",
     "format": "text",
-    "_format_options": "text, json",
-    "file": "./obsync.log",
-    "_file_comment": "Leave empty to disable file logging",
+    "_format": "DEFAULT: text - Options: text, json",
+    "file": "",
+    "_file": "DEFAULT: empty (console only) - Set path to enable file logging",
     "max_size": 10,
+    "_max_size": "DEFAULT: 10 - Max log file size in MB",
     "max_backups": 3,
+    "_max_backups": "DEFAULT: 3 - Number of old log files to keep",
     "max_age": 7,
+    "_max_age": "DEFAULT: 7 - Days to keep old logs",
     "color": true,
-    "timestamp": true
+    "_color": "DEFAULT: true - Colorized console output",
+    "timestamp": true,
+    "_timestamp": "DEFAULT: true - Include timestamps in logs"
   },
   
   "dev": {
-    "_comment": "Development/debugging options (optional)",
+    "_comment": "Development options - ALL OPTIONAL, normally not needed",
     "save_websocket_trace": false,
+    "_save_websocket_trace": "DEFAULT: false - Save WebSocket messages for debugging",
     "trace_path": "./.obsync/traces",
-    "insecure_skip_verify": false
+    "_trace_path": "DEFAULT: .obsync/traces - Where to save traces",
+    "insecure_skip_verify": false,
+    "_insecure_skip_verify": "DEFAULT: false - Skip TLS certificate verification (DANGEROUS)"
   }
 }
