@@ -94,3 +94,8 @@ type ErrorMessage struct {
 	Path    string `json:"path,omitempty"`
 	Fatal   bool   `json:"fatal"`
 }
+
+// ParseData parses the Data field into the specified struct
+func (m *WSMessage) ParseData(v interface{}) error {
+	return json.Unmarshal(m.Data, v)
+}

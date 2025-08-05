@@ -40,3 +40,29 @@ dev-setup:
 coverage-html: test
 	$(GO) tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
+
+# Lambda deployment targets
+LAMBDA_BUILD_DIR = build/lambda
+LAMBDA_ZIP = obsync-lambda.zip
+
+.PHONY: build-lambda
+build-lambda:
+	@echo "Building Lambda function..."
+	@mkdir -p $(LAMBDA_BUILD_DIR)
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build \
+		-tags lambda.norpc \
+		-ldflags="-s -w -X main.version=$(VERSION)" \
+		-o $(LAMBDA_BUILD_DIR)/bootstrap \
+		./cmd/lambda
+	@cd $(LAMBDA_BUILD_DIR) && zip -r ../$(LAMBDA_ZIP) bootstrap
+	@echo "Lambda package created: build/$(LAMBDA_ZIP)"
+
+.PHONY: test-lambda
+test-lambda:
+	@echo "Testing Lambda handlers..."
+	go test -v ./internal/lambda/...
+
+.PHONY: clean-lambda
+clean-lambda:
+	@rm -rf $(LAMBDA_BUILD_DIR)
+	@rm -f build/$(LAMBDA_ZIP)
