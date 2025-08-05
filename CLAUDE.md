@@ -5,30 +5,31 @@ This document provides guidelines for AI-assisted development of the Obsync proj
 ## Project Overview
 
 Obsync is a secure, one-way synchronization tool for Obsidian vaults written in Go. Key characteristics:
-- **Language**: Go 1.24.4
+- **Language**: Go 1.24+
 - **Architecture**: Clean architecture with interface-based design
 - **Security**: AES-256-GCM encryption with PBKDF2 key derivation
-- **Protocol**: UID-based incremental sync over WebSocket
-- **Testing**: 85% unit coverage, 80% mutation coverage for business logic
+- **Protocol**: WebSocket-based incremental sync with UID tracking
+- **Testing**: Target 85% unit coverage, race condition detection
+- **Deployment**: CLI binary and AWS Lambda function support
 
 ## Quick Commands
 
-### Development Setup
+### Development Workflow
 ```bash
 # Initial setup
 ./scripts/setup.sh
 
-# Run tests
-make test
-
-# Run linting
-make lint
-
-# Build binary
-make build
+# Build and test
+make build          # Build CLI binary
+make test           # Run all tests
+make lint           # Run linting
+make build-lambda   # Build Lambda package
 
 # Run with race detection
 go test -race ./...
+
+# Generate coverage report
+make coverage-html
 ```
 
 ### Common Tasks
@@ -46,6 +47,13 @@ go test -race ./...
 3. Support both text and JSON output
 4. Add to root command in init()
 5. Include examples in Long description
+
+#### Adding Lambda Functionality
+1. Update handler in `internal/lambda/handler/`
+2. Add AWS SDK dependencies as needed
+3. Implement adapters for AWS services
+4. Update Lambda config in `internal/config/lambda.go`
+5. Test with `make test-lambda`
 
 ## Code Patterns
 
@@ -81,6 +89,9 @@ logger.WithFields(map[string]interface{}{
 
 // Log errors with context
 logger.WithError(err).Error("Operation failed")
+
+// Debug logging for development
+logger.WithField("data", data).Debug("Processing")
 ```
 
 ### Testing Pattern
@@ -112,20 +123,62 @@ for _, tt := range tests {
 }
 ```
 
+### Interface Pattern
+```go
+// Define interfaces where they're used
+type Storage interface {
+    Read(path string) ([]byte, error)
+    Write(path string, data []byte) error
+}
+
+// Implement with concrete types
+type LocalStorage struct {
+    basePath string
+    logger   *events.Logger
+}
+
+// Accept interfaces, return concrete types
+func NewService(storage Storage) *Service {
+    return &Service{storage: storage}
+}
+```
+
 ## Architecture Guidelines
 
 ### Package Structure
 ```
+cmd/
+├── obsync/      # CLI commands
+└── lambda/      # Lambda entry point
+
 internal/
 ├── client/      # High-level client API
 ├── config/      # Configuration management
 ├── crypto/      # Encryption/decryption
+├── events/      # Logging and events
+├── lambda/      # Lambda-specific components
+│   ├── adapters/    # AWS service adapters
+│   ├── handler/     # Lambda event handler
+│   ├── progress/    # Progress tracking
+│   ├── recovery/    # Error recovery
+│   └── sync/        # Lambda sync engine
 ├── models/      # Data structures
 ├── services/    # Business logic
+│   ├── auth/        # Authentication
+│   ├── sync/        # Sync orchestration
+│   └── vaults/      # Vault management
 ├── state/       # State persistence
 ├── storage/     # File operations
-├── transport/   # Network communication
-└── events/      # Logging and events
+└── transport/   # Network communication
+```
+
+### Dependency Flow
+```
+CLI/Lambda -> Client -> Services -> {Transport, State, Storage}
+                           ↓
+                        Models
+                           ↓
+                        Crypto
 ```
 
 ### Interface Design
@@ -134,16 +187,7 @@ internal/
 - Use interface{} sparingly, prefer concrete types
 - Mock interfaces for testing, not concrete types
 
-### Dependency Flow
-```
-CLI -> Client -> Services -> {Transport, State, Storage}
-                    ↓
-                 Models
-                    ↓
-                 Crypto
-```
-
-## Common Pitfalls
+## Common Pitfalls & Solutions
 
 ### 1. Path Handling
 ```go
@@ -183,6 +227,20 @@ func (s *Service) Operation(ctx context.Context, ...) error {
 }
 ```
 
+### 4. Resource Management
+```go
+// BAD: Forgetting to close resources
+file, _ := os.Open(path)
+// Missing file.Close()
+
+// GOOD: Use defer immediately after opening
+file, err := os.Open(path)
+if err != nil {
+    return err
+}
+defer file.Close()
+```
+
 ## Security Considerations
 
 ### Never Do
@@ -191,6 +249,7 @@ func (s *Service) Operation(ctx context.Context, ...) error {
 - Use math/rand for cryptographic operations
 - Ignore encryption/decryption errors
 - Allow path traversal (../) in file operations
+- Commit real credentials (use templates)
 
 ### Always Do
 - Use crypto/rand for random data
@@ -198,6 +257,7 @@ func (s *Service) Operation(ctx context.Context, ...) error {
 - Check hash/integrity after decryption
 - Use constant-time comparison for secrets
 - Clear sensitive data from memory when possible
+- Use environment variables for credentials in production
 
 ## Testing Guidelines
 
@@ -206,6 +266,7 @@ func (s *Service) Operation(ctx context.Context, ...) error {
 - Test error cases thoroughly
 - Use table-driven tests for multiple scenarios
 - Verify logging output for critical operations
+- Target 85% coverage minimum
 
 ### Integration Tests
 ```go
@@ -275,6 +336,26 @@ for _, file := range files {
 }
 ```
 
+## Lambda-Specific Guidelines
+
+### Memory Management
+- Monitor memory usage with MemoryManager
+- Pause processing when memory > 80%
+- Force GC when memory is critical
+- Use batch processing for large operations
+
+### Timeout Handling
+- Reserve 30-second buffer before Lambda timeout
+- Save progress before timeout
+- Support resumable operations
+- Use DynamoDB for progress tracking
+
+### AWS Service Integration
+- Use AWS SDK v2 for all services
+- Implement exponential backoff for retries
+- Handle throttling gracefully
+- Use IAM roles, not credentials
+
 ## Debugging Tips
 
 ### Enable Debug Logging
@@ -282,69 +363,96 @@ for _, file := range files {
 obsync --log-level=debug sync vault-123 --dest ./vault
 ```
 
-### Trace WebSocket Messages
-```go
-// In development mode, save WebSocket trace
-if cfg.Dev.SaveWebSocketTrace {
-    trace := &WSTrace{
-        Messages: messages,
-        SavePath: cfg.Dev.TracePath,
-    }
-    trace.Save()
-}
-```
-
 ### Profile Performance
 ```go
 import _ "net/http/pprof"
 
-// In main.go for development builds
+// In development builds
 go func() {
     log.Println(http.ListenAndServe("localhost:6060", nil))
 }()
 ```
 
+### Trace WebSocket Messages
+Set `dev.save_websocket_trace: true` in config to save WebSocket communications for debugging.
+
 ## Common Development Workflows
 
-### Adding Encryption Support for New Version
-1. Add version constant in `crypto/provider.go`
-2. Implement version-specific logic in crypto methods
-3. Add test vectors in `crypto/testdata/vectors.go`
-4. Update version validation
-5. Test with fixture data
+### Adding New Configuration Option
+1. Add field to Config struct in `internal/config/config.go`
+2. Set default in DefaultConfig()
+3. Add validation in Validate()
+4. Add environment variable mapping
+5. Update config.template.json
+6. Document in README.md
 
 ### Implementing New WebSocket Message Type
 1. Add type constant in `models/websocket.go`
 2. Define message structure
-3. Add to ParseMessageData switch
+3. Add to ParseData method if needed
 4. Implement handler in sync engine
 5. Add test fixtures
 6. Update integration tests
 
-### Adding New Configuration Option
-1. Add field to Config struct
-2. Set default in DefaultConfig()
-3. Add validation in Validate()
-4. Add environment variable mapping
-5. Update config example
-6. Document in README
+### Adding Encryption Support for New Version
+1. Add version constant in `crypto/provider.go`
+2. Implement version-specific logic in crypto methods
+3. Add test vectors
+4. Update version validation
+5. Test with fixture data
 
 ## Code Review Checklist
 
 Before submitting PR, ensure:
 - [ ] All tests pass (`make test`)
 - [ ] Linting passes (`make lint`)
-- [ ] Coverage meets requirements
+- [ ] Coverage meets requirements (85% for business logic)
 - [ ] Error messages provide context
 - [ ] Logging includes relevant fields
-- [ ] Documentation is updated
+- [ ] Documentation is updated (README, code comments)
 - [ ] Security implications considered
 - [ ] Performance impact assessed
 - [ ] Cross-platform compatibility verified
+- [ ] Lambda functionality unaffected (if applicable)
+
+## Project-Specific Commands
+
+### Authentication Flow
+1. User provides email/password/TOTP
+2. System validates with Obsidian API
+3. Token stored in `token.json`
+4. Token auto-refreshes on expiry
+
+### Sync Process
+1. Authenticate with service
+2. Get vault metadata
+3. Compare with local state
+4. Download changed files via WebSocket
+5. Decrypt and store locally
+6. Update sync state
+
+### State Management
+- SQLite for local CLI storage
+- DynamoDB for Lambda deployments
+- JSON files for development/testing
 
 ## Resources
 
-- [Implementation Phases](implementation/README.md) - Detailed implementation guide
-- [Coding Standards](CODING_STANDARDS.md) - Project coding standards
-- [Project Specification](project.md) - Original project requirements
-- [Troubleshooting Guide](troubleshooting.md) - Common issues and solutions
+- [Project Specification](project.md) - Original requirements
+- [Coding Standards](CODING_STANDARDS.md) - Style guide
+- [Security Guidelines](SECURITY.md) - Security best practices
+- [Lambda Documentation](internal/lambda/README.md) - Serverless implementation
+- [Implementation Phases](implementation/) - Development roadmap
+
+## Important Reminders
+
+1. **Do what's asked, nothing more** - Avoid unnecessary features or files
+2. **Prefer editing over creating** - Modify existing files when possible
+3. **Never create documentation unless requested** - No unsolicited README files
+4. **Keep security in mind** - Never log or commit credentials
+5. **Test thoroughly** - Include unit tests for new features
+6. **Follow patterns** - Match existing code style and structure
+7. **Use interfaces** - Design for testability and flexibility
+8. **Handle errors properly** - Wrap with context, don't ignore
+9. **Log appropriately** - Structured logging with context
+10. **Consider Lambda** - Ensure changes work in both CLI and Lambda modes
