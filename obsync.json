@@ -1,0 +1,40 @@
+{
+  "api": {
+    "base_url": "https://api.obsidian.md",
+    "timeout": "30s",
+    "max_retries": 3,
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) obsidian/1.8.10 Chrome/132.0.6834.196 Electron/34.2.0 Safari/537.36"
+  },
+  "auth": {
+    "email": "atom_turban383@scare.io",
+    "password": "xofven-kojtyn-8pygbA",
+    "totp_secret": "EE6SJEB23D5T6J47EU6Z3F2WKY2HHMMX",
+    "token_file": "~/.obsync/token.json",
+    "vault_credentials_file": "./credentials/vault_credentials.json"
+  },
+  "storage": {
+    "data_dir": "~/.obsync",
+    "state_dir": "~/.obsync/state",
+    "temp_dir": "~/.obsync/temp",
+    "max_file_size": 104857600
+  },
+  "sync": {
+    "base_dir": "./vaults",
+    "chunk_size": 1048576,
+    "max_concurrent": 5,
+    "retry_attempts": 3,
+    "retry_delay": "1s",
+    "progress_interval": "500ms",
+    "validate_checksums": true
+  },
+  "log": {
+    "level": "info",
+    "format": "text",
+    "file": "",
+    "max_size": 10,
+    "max_backups": 3,
+    "max_age": 7,
+    "color": true,
+    "timestamp": true
+  }
+}

@@ -1,0 +1,44 @@
+# Binaries
+obsync
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of go coverage
+*.out
+coverage.html
+
+# Dependency directories
+vendor/
+
+# Go workspace
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+.obsync/
+*.log
+*.pid
+
+# Build artifacts
+dist/
+build/
+
+# Local config
+.env
+.env.local
+config.local.json

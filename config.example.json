@@ -1,0 +1,58 @@
+{
+  "_comment": "Obsync Configuration File - Copy to config.json and fill in your values",
+  
+  "api": {
+    "_comment": "Obsidian API settings",
+    "base_url": "https://api.obsidian.md",
+    "timeout": "30s",
+    "max_retries": 3,
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) obsidian/1.8.10 Chrome/132.0.6834.196 Electron/34.2.0 Safari/537.36"
+  },
+  
+  "auth": {
+    "_comment": "Authentication configuration",
+    "email": "your.email@example.com",
+    "password": "your_obsidian_password",
+    "totp_secret": "YOUR_TOTP_SECRET_FROM_OBSIDIAN_ACCOUNT",
+    "token_file": "~/.obsync/token.json",
+    "vault_credentials_file": "~/.obsync/vault_credentials.json"
+  },
+  
+  "storage": {
+    "_comment": "Local storage paths and limits",
+    "data_dir": "~/.obsync",
+    "state_dir": "~/.obsync/state",
+    "temp_dir": "~/.obsync/temp",
+    "max_file_size": 104857600
+  },
+  
+  "sync": {
+    "_comment": "Synchronization behavior",
+    "base_dir": "./vaults",
+    "chunk_size": 1048576,
+    "max_concurrent": 5,
+    "retry_attempts": 3,
+    "retry_delay": "1s",
+    "progress_interval": "500ms",
+    "validate_checksums": true
+  },
+  
+  "log": {
+    "_comment": "Logging configuration",
+    "level": "info",
+    "format": "text",
+    "file": "",
+    "max_size": 10,
+    "max_backups": 3,
+    "max_age": 7,
+    "color": true,
+    "timestamp": true
+  },
+  
+  "dev": {
+    "_comment": "Development/debugging options (optional)",
+    "save_websocket_trace": false,
+    "trace_path": "~/.obsync/traces",
+    "insecure_skip_verify": false
+  }
+}
