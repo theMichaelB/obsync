@@ -52,9 +52,10 @@ cp config.template.json config.json
 
 ### ☁️ **Serverless Support (New!)**
 - **AWS Lambda deployment** for automated, scheduled syncs
-- **S3 storage backend** for cloud-native architectures
-- **DynamoDB state management** for distributed systems
+- **S3 storage backend** for cloud-native architectures with vault-specific organization
+- **S3 state management** with versioning and conflict resolution
 - **Auto-scaling** based on vault size and complexity
+- **Hybrid CLI/Lambda mode** - use S3 storage from CLI for testing
 
 ## 📖 Complete Command Reference
 
@@ -114,6 +115,9 @@ cp config.template.json config.json
 
 # With vault password
 ./obsync sync vault-id --dest ./local-folder --password "vault-pass"
+
+# S3 storage mode (requires S3 environment variables)
+./obsync --s3 sync vault-id --dest ./local-folder --password "vault-pass"
 ```
 
 #### Check Sync Status
@@ -209,6 +213,12 @@ export OBSYNC_STATE_DIR="/path/to/state"
 # Logging
 export OBSYNC_LOG_LEVEL="debug"
 export OBSYNC_LOG_FORMAT="json"
+
+# S3 Storage (for Lambda or CLI S3 mode)
+export S3_BUCKET="your-obsync-bucket"
+export S3_PREFIX="vaults/"
+export S3_STATE_PREFIX="state/"
+export AWS_REGION="us-east-1"
 ```
 
 ## 🔒 Security Best Practices
@@ -223,7 +233,7 @@ See [SECURITY.md](SECURITY.md) for comprehensive security guidelines.
 
 ## 🚢 AWS Lambda Deployment
 
-Obsync can run serverless on AWS Lambda for automated, scheduled syncs:
+Obsync can run serverless on AWS Lambda for automated, scheduled syncs with full S3 storage:
 
 ```bash
 # Build Lambda deployment package
@@ -233,21 +243,46 @@ make build-lambda
 aws lambda create-function \
   --function-name obsync-sync \
   --runtime provided.al2 \
+  --architecture arm64 \
   --handler bootstrap \
   --zip-file fileb://build/obsync-lambda.zip \
   --environment Variables="{
     OBSIDIAN_EMAIL=your@email.com,
     OBSIDIAN_PASSWORD=yourpass,
+    OBSIDIAN_TOTP_SECRET=YOUR_BASE32_SECRET,
     S3_BUCKET=my-vault-bucket,
-    S3_STATE_PREFIX=state/
+    S3_PREFIX=vaults/,
+    S3_STATE_PREFIX=state/,
+    AWS_REGION=us-east-1,
+    DOWNLOAD_ON_STARTUP=true
   }"
+```
+
+### S3 Storage Features:
+- **Vault organization**: Files stored as `vaults/{vault-name}/path/to/file.md`
+- **State versioning**: Conflict detection using S3 object versions
+- **Local caching**: Performance optimization with configurable timeouts
+- **Startup downloads**: Pre-load state for Lambda cold starts
+
+### Test S3 Mode Locally:
+```bash
+# Set S3 environment variables
+export S3_BUCKET="your-bucket"
+export AWS_ACCESS_KEY_ID="your-key"
+export AWS_SECRET_ACCESS_KEY="your-secret"
+
+# Run sync with S3 storage
+./obsync --s3 sync vault-id --dest ./vault-folder
 ```
 
 Lambda features:
 - Memory-aware processing with automatic throttling
 - Batch processing for large vaults
-- Progress tracking across invocations
+- Progress tracking across invocations with S3 state persistence
 - Automatic retry with error recovery
+- Vault-specific S3 organization for multi-vault deployments
+
+📖 **Detailed deployment guide**: See [docs/LAMBDA_DEPLOYMENT.md](docs/LAMBDA_DEPLOYMENT.md)
 
 ## 🏗️ Architecture
 
@@ -262,8 +297,8 @@ Obsync is built with clean architecture principles:
 
 - **Transport Layer** - HTTP/2 client with WebSocket support
 - **Crypto Provider** - AES-256-GCM encryption with PBKDF2
-- **State Management** - SQLite for local, S3 for Lambda
-- **Storage Adapters** - Local filesystem or S3
+- **State Management** - SQLite for local, S3 with versioning for Lambda
+- **Storage Adapters** - Local filesystem or S3 with vault-specific prefixes
 - **Services** - Auth, Vaults, Sync orchestration
 
 ## 🧪 Development

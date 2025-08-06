@@ -10,7 +10,7 @@ Obsync is a secure, one-way synchronization tool for Obsidian vaults written in 
 - **Security**: AES-256-GCM encryption with PBKDF2 key derivation
 - **Protocol**: WebSocket-based incremental sync with UID tracking
 - **Testing**: Target 85% unit coverage, race condition detection
-- **Deployment**: CLI binary and AWS Lambda function support
+- **Deployment**: CLI binary and AWS Lambda function with S3 storage support
 
 ## Quick Commands
 
@@ -51,9 +51,15 @@ make coverage-html
 #### Adding Lambda Functionality
 1. Update handler in `internal/lambda/handler/`
 2. Add AWS SDK dependencies as needed
-3. Implement adapters for AWS services
+3. Implement adapters for AWS services (S3, DynamoDB)
 4. Update Lambda config in `internal/config/lambda.go`
 5. Test with `make test-lambda`
+
+#### Testing S3 Storage Mode
+1. Set S3 environment variables (S3_BUCKET, AWS credentials)
+2. Use `./obsync --s3` flag to enable S3 storage
+3. Test vault-specific prefixes with `SetBasePath()`
+4. Verify state versioning and conflict resolution
 
 ## Code Patterns
 
@@ -157,7 +163,7 @@ internal/
 ├── crypto/      # Encryption/decryption
 ├── events/      # Logging and events
 ├── lambda/      # Lambda-specific components
-│   ├── adapters/    # AWS service adapters
+│   ├── adapters/    # AWS service adapters (S3Store, S3StateStore)
 │   ├── handler/     # Lambda event handler
 │   ├── progress/    # Progress tracking
 │   ├── recovery/    # Error recovery
@@ -348,13 +354,37 @@ for _, file := range files {
 - Reserve 30-second buffer before Lambda timeout
 - Save progress before timeout
 - Support resumable operations
-- Use DynamoDB for progress tracking
+- Use S3 state storage for progress tracking with versioning
 
 ### AWS Service Integration
 - Use AWS SDK v2 for all services
 - Implement exponential backoff for retries
 - Handle throttling gracefully
 - Use IAM roles, not credentials
+
+### S3 Storage Patterns
+```go
+// Implement SetBasePath for vault-specific prefixes
+func (s *S3Store) SetBasePath(basePath string) error {
+    vaultName := filepath.Base(basePath)
+    s.prefix = s.prefix + vaultName + "/"
+    return nil
+}
+
+// Use versioning for conflict detection
+putInput := &s3.PutObjectInput{
+    Bucket: aws.String(s.bucket),
+    Key:    aws.String(key),
+    Body:   bytes.NewReader(data),
+    IfMatch: aws.String(currentETag), // Conditional write
+}
+```
+
+### S3 State Management
+- Use object versioning for conflict resolution
+- Implement local caching with configurable timeouts
+- Download startup state for Lambda optimization
+- Handle ETag-based conditional writes
 
 ## Debugging Tips
 
@@ -433,15 +463,17 @@ Before submitting PR, ensure:
 
 ### State Management
 - SQLite for local CLI storage
-- DynamoDB for Lambda deployments
+- S3 with versioning for Lambda deployments (replaces DynamoDB)
 - JSON files for development/testing
+- Local caching with configurable timeouts
 
 ## Resources
 
 - [Project Specification](project.md) - Original requirements
 - [Coding Standards](CODING_STANDARDS.md) - Style guide
 - [Security Guidelines](SECURITY.md) - Security best practices
-- [Lambda Documentation](internal/lambda/README.md) - Serverless implementation
+- [Lambda Implementation Guide](docs/LAMBDA_GUIDE.md) - Serverless implementation details
+- [Lambda Deployment Guide](docs/LAMBDA_DEPLOYMENT.md) - Deployment and infrastructure
 - [Implementation Phases](implementation/) - Development roadmap
 
 ## Important Reminders

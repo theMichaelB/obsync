@@ -10,8 +10,8 @@ Obsync supports serverless deployment on AWS Lambda, enabling automated vault sy
 
 | Component | CLI Mode | Lambda Mode |
 |-----------|----------|-------------|
-| **Storage** | Local filesystem (`LocalStore`) | Amazon S3 (`S3Store`) |
-| **State Management** | SQLite files (`JSONStore`) | S3 with versioning (`S3StateStore`) |
+| **Storage** | Local filesystem (`LocalStore`) | Amazon S3 (`S3Store`) with vault-specific prefixes |
+| **State Management** | SQLite files (`JSONStore`) | S3 with versioning (`S3StateStore`) and conflict resolution |
 | **Authentication** | Local token files | Temporary `/tmp` storage |
 | **Memory Management** | OS managed | Custom `MemoryManager` with throttling |
 | **Concurrency** | User configurable | Lambda-optimized (typically 3) |
@@ -56,9 +56,10 @@ OBSIDIAN_TOTP_SECRET=your-totp-secret         # Base32 encoded
 ```bash
 S3_PREFIX=vaults/                             # S3 key prefix for vault files
 S3_STATE_PREFIX=state/                        # S3 key prefix for state files
+DOWNLOAD_ON_STARTUP=true                      # Pre-download state files for performance
+CACHE_TIMEOUT=300                             # Local state cache timeout (seconds)
 LAMBDA_BATCH_SIZE=50                          # Files per batch (default: 50)
 LAMBDA_MAX_CONCURRENT=3                       # Concurrent operations (default: 3)
-LAMBDA_DOWNLOAD_ON_STARTUP=true               # Cache states on startup
 LAMBDA_TIMEOUT_BUFFER=30                      # Seconds before Lambda timeout
 ```
 
@@ -76,7 +77,9 @@ The Lambda function requires the following IAM permissions:
                 "s3:GetObject",
                 "s3:PutObject",
                 "s3:DeleteObject",
-                "s3:ListBucket"
+                "s3:ListBucket",
+                "s3:GetObjectVersion",
+                "s3:PutObjectAcl"
             ],
             "Resource": [
                 "arn:aws:s3:::your-obsync-bucket",
@@ -107,9 +110,9 @@ The Lambda client uses different storage and state adapters:
 ```go
 // internal/client/lambda_extensions.go
 func NewLambdaClient(cfg *config.Config, logger *events.Logger) (*Client, error) {
-    if !config.IsLambdaEnvironment() {
-        return New(cfg, logger) // Fall back to CLI mode
-    }
+    logger.Info("Initializing S3 storage client")
+    
+    // Note: Can be used for both Lambda and CLI S3 mode
     
     // Create S3 storage with vault-specific prefixes
     s3Store, err := adapters.NewS3Store(
@@ -170,9 +173,9 @@ s3://your-bucket/
     └── vault-id-2.json
 ```
 
-#### S3 State Management
+#### S3 State Management with Versioning
 
-State files use S3 versioning for conflict resolution:
+State files use S3 object versioning for conflict resolution and consistency:
 
 ```go
 // internal/lambda/adapters/s3_state_store.go
@@ -199,6 +202,99 @@ func (s *S3StateStore) Save(vaultID string, syncState *models.SyncState) error {
     }
     
     return nil
+}
+```
+
+#### Local Caching and Performance
+
+The S3StateStore includes local caching to reduce API calls:
+
+```go
+type cacheEntry struct {
+    state     *models.SyncState
+    versionID string
+    timestamp time.Time
+}
+
+// Check cache before S3 operation
+func (s *S3StateStore) Load(vaultID string) (*models.SyncState, error) {
+    // Check local cache first
+    if entry, exists := s.localCache[vaultID]; exists {
+        if time.Since(entry.timestamp) < s.cacheTimeout {
+            return entry.state, nil
+        }
+    }
+    
+    // Fall back to S3 if cache miss/expired
+    return s.loadFromS3(vaultID)
+}
+```
+
+### Recent S3 Storage Improvements
+
+#### 1. Vault-Specific Prefixes (Fixed Organization Issue)
+
+**Problem**: Previously, all vaults synced to a flat `vaults/` structure, causing file conflicts.
+
+**Solution**: Implemented `SetBasePath()` method to create vault-specific prefixes:
+
+```go
+// Before: vaults/file.md (all vaults mixed together)
+// After:  vaults/Vault-Name/file.md (organized by vault)
+
+func (s *S3Store) SetBasePath(basePath string) error {
+    vaultName := filepath.Base(basePath)
+    originalPrefix := strings.TrimSuffix(s.prefix, "/")
+    
+    if originalPrefix != "" {
+        s.prefix = originalPrefix + "/" + vaultName + "/"
+    } else {
+        s.prefix = vaultName + "/"
+    }
+    return nil
+}
+```
+
+#### 2. Enhanced Client Compatibility
+
+**Problem**: CLI couldn't use S3 storage for testing Lambda functionality.
+
+**Solution**: Extended `Client.SetStorageBase()` to support S3Store:
+
+```go
+func (c *Client) SetStorageBase(basePath string) error {
+    if localStore, ok := c.storage.(*storage.LocalStore); ok {
+        return localStore.SetBasePath(basePath)
+    }
+    
+    // Handle S3Store for Lambda mode
+    if s3Store, ok := c.storage.(interface{ SetBasePath(string) error }); ok {
+        return s3Store.SetBasePath(basePath)
+    }
+    
+    return nil
+}
+```
+
+#### 3. Hybrid CLI/Lambda Mode
+
+**Enhancement**: `NewLambdaClient()` now works for both Lambda and CLI S3 testing:
+
+```go
+func NewLambdaClient(cfg *config.Config, logger *events.Logger) (*Client, error) {
+    logger.Info("Initializing S3 storage client")
+    
+    // Works in both Lambda environment and CLI with --s3 flag
+    // Different token storage paths for each environment
+    var tokenFile string
+    if config.IsLambdaEnvironment() {
+        tokenFile = filepath.Join("/tmp/obsync/auth", "token.json")
+    } else {
+        // CLI S3 mode uses configured token path
+        tokenFile = cfg.Auth.TokenFile
+    }
+    
+    return client, nil
 }
 ```
 
@@ -250,23 +346,38 @@ make build-lambda
 # This creates build/obsync-lambda.zip ready for deployment
 ```
 
-### Manual Testing (Lambda Mode)
+### Testing S3 Storage Mode
 
-You can test Lambda functionality locally by setting the environment variable:
+You can test S3 storage functionality locally without Lambda:
 
 ```bash
-# Enable Lambda mode locally
-export AWS_LAMBDA_FUNCTION_NAME="test-mode"
+# Set S3 environment variables
 export S3_BUCKET="your-test-bucket"
 export S3_PREFIX="vaults/"
 export S3_STATE_PREFIX="state/"
+export AWS_REGION="us-east-1"
+export AWS_ACCESS_KEY_ID="your-access-key"
+export AWS_SECRET_ACCESS_KEY="your-secret-key"
 
-# Set credentials
+# Set Obsidian credentials
 export OBSIDIAN_EMAIL="your-email@example.com"
 export OBSIDIAN_PASSWORD="your-password"
 export OBSIDIAN_TOTP_SECRET="your-totp-secret"
 
-# Run sync (will use S3 storage instead of local)
+# Run sync with S3 storage (--s3 flag enables S3 mode)
+./obsync --s3 sync <vault-id> --dest ./vault-name --password <vault-password>
+```
+
+### Lambda Environment Testing
+
+For full Lambda mode testing:
+
+```bash
+# Enable Lambda mode locally
+export AWS_LAMBDA_FUNCTION_NAME="test-mode"
+# ... (add all the S3 and auth variables above)
+
+# Run sync (will use Lambda-optimized components)
 ./obsync sync <vault-id> --dest /tmp/vault-name --password <vault-password>
 ```
 
