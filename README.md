@@ -224,7 +224,7 @@ export AWS_REGION="us-east-1"
 ## 🔒 Security Best Practices
 
 1. **Never commit credentials** - config.json is gitignored by default
-2. **Use TOTP/2FA** - Enable two-factor authentication on your Obsidian account
+2. **Use TOTP/2FA** - Enable two-factor authentication on your Obsidian account (Yes, you have to. Why? Because I've seen how you choose passwords)
 3. **Secure your config** - Set file permissions to 0600 on config.json
 4. **Use environment variables** in CI/CD pipelines
 5. **Rotate credentials regularly** - Update passwords and TOTP secrets periodically
