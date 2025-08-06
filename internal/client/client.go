@@ -108,6 +108,12 @@ func (c *Client) SetStorageBase(basePath string) error {
 	if localStore, ok := c.storage.(*storage.LocalStore); ok {
 		return localStore.SetBasePath(basePath)
 	}
+	
+	// Handle S3Store for Lambda mode
+	if s3Store, ok := c.storage.(interface{ SetBasePath(string) error }); ok {
+		return s3Store.SetBasePath(basePath)
+	}
+	
 	return nil
 }
 

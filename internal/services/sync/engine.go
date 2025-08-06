@@ -1127,7 +1127,20 @@ func (e *Engine) processPullQueue(ctx context.Context, vaultKey []byte, syncStat
 func (e *Engine) processPullQueueAsync(ctx context.Context, vaultKey []byte, syncState *models.SyncState) {
 	e.logger.Info("Starting async pull queue processing")
 	
+	// Ensure completion signal is always sent, even on early exit
+	defer func() {
+		e.completePullPhase()
+	}()
+	
 	for i, req := range e.pullQueue {
+		// Check for context cancellation before processing each file
+		select {
+		case <-ctx.Done():
+			e.logger.WithError(ctx.Err()).Warn("Pull queue processing cancelled")
+			return
+		default:
+		}
+		
 		e.logger.WithFields(map[string]interface{}{
 			"progress": fmt.Sprintf("%d/%d", i+1, len(e.pullQueue)),
 			"path":     req.Path,
@@ -1138,6 +1151,11 @@ func (e *Engine) processPullQueueAsync(ctx context.Context, vaultKey []byte, syn
 		plainData, err := e.pullFileContent(ctx, req.UID, vaultKey)
 		if err != nil {
 			e.logger.WithError(err).WithField("path", req.Path).Error("Failed to pull file content")
+			// Check if error was due to context cancellation
+			if ctx.Err() != nil {
+				e.logger.WithError(ctx.Err()).Warn("Pull file content cancelled")
+				return
+			}
 			continue // Continue with other files
 		}
 		
@@ -1165,8 +1183,7 @@ func (e *Engine) processPullQueueAsync(ctx context.Context, vaultKey []byte, syn
 		}).Info("File downloaded and written successfully")
 	}
 	
-	// Signal completion after all pulls done
-	e.completePullPhase()
+	// Completion signal is sent by defer function
 }
 
 // completePullPhase signals that the pull phase is complete.

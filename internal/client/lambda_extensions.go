@@ -16,14 +16,9 @@ import (
 	"github.com/TheMichaelB/obsync/internal/transport"
 )
 
-// NewLambdaClient creates a client optimized for Lambda
+// NewLambdaClient creates a client optimized for Lambda or S3 storage
 func NewLambdaClient(cfg *config.Config, logger *events.Logger) (*Client, error) {
-	// Detect if running in Lambda
-	if !config.IsLambdaEnvironment() {
-		return New(cfg, logger)
-	}
-	
-	logger.Info("Initializing Lambda-optimized client")
+	logger.Info("Initializing S3 storage client")
 	
 	// Create Lambda-specific components
 	lambdaCfg := config.LoadLambdaConfig()
@@ -33,7 +28,7 @@ func NewLambdaClient(cfg *config.Config, logger *events.Logger) (*Client, error)
 	
 	// Create S3 storage
 	if lambdaCfg.S3Bucket == "" {
-		return nil, fmt.Errorf("S3_BUCKET environment variable required for Lambda")
+		return nil, fmt.Errorf("S3_BUCKET environment variable required for S3 storage mode")
 	}
 	
 	s3Store, err := adapters.NewS3Store(
@@ -58,8 +53,17 @@ func NewLambdaClient(cfg *config.Config, logger *events.Logger) (*Client, error)
 	// Create crypto provider
 	cryptoProvider := crypto.NewProvider()
 	
-	// Create services
-	tokenFile := filepath.Join("/tmp/obsync/auth", "token.json")
+	// Create services - use different token path depending on environment
+	var tokenFile string
+	if config.IsLambdaEnvironment() {
+		tokenFile = filepath.Join("/tmp/obsync/auth", "token.json")
+	} else {
+		// For CLI S3 mode, use the configured token file path
+		tokenFile = cfg.Auth.TokenFile
+		if tokenFile == "" {
+			tokenFile = filepath.Join(cfg.Storage.StateDir, "auth", "token.json")
+		}
+	}
 	authService := auth.NewService(transportClient, tokenFile, logger)
 	vaultService := vaults.NewService(transportClient, cryptoProvider, logger)
 	
@@ -69,8 +73,8 @@ func NewLambdaClient(cfg *config.Config, logger *events.Logger) (*Client, error)
 		MaxConcurrent: cfg.Sync.MaxConcurrent,
 	}
 	
-	// Download states on startup if enabled
-	if lambdaCfg.DownloadOnStartup {
+	// Download states on startup if enabled (mainly for Lambda optimization)
+	if lambdaCfg.DownloadOnStartup && config.IsLambdaEnvironment() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 		

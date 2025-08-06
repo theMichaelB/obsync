@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 	
@@ -215,6 +216,29 @@ func (s *S3Store) Move(oldPath, newPath string) error {
 func (s *S3Store) SetModTime(filePath string, modTime time.Time) error {
 	// S3 doesn't support modifying timestamps
 	// This is tracked in metadata but not enforced
+	return nil
+}
+
+// SetBasePath updates the S3 prefix for vault-specific storage
+func (s *S3Store) SetBasePath(basePath string) error {
+	// Extract vault name from the path for S3 prefix
+	// basePath format: /tmp/vault-name or ./vault-name
+	vaultName := filepath.Base(basePath)
+	
+	// Combine original prefix with vault name
+	originalPrefix := strings.TrimSuffix(s.prefix, "/")
+	if originalPrefix != "" {
+		s.prefix = originalPrefix + "/" + vaultName + "/"
+	} else {
+		s.prefix = vaultName + "/"
+	}
+	
+	s.logger.WithFields(map[string]interface{}{
+		"base_path": basePath,
+		"vault_name": vaultName,
+		"s3_prefix": s.prefix,
+	}).Debug("Updated S3 storage prefix for vault")
+	
 	return nil
 }
 
