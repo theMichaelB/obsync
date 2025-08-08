@@ -14,3 +14,6 @@ obsidian_totp_secret = "BASE32_REPLACE_ME"
 
 s3_prefix        = "vaults/"
 s3_state_prefix  = "state/"
+
+# Optional combined secret (Secrets Manager ARN)
+secrets_manager_secret_arn = ""
