@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -62,12 +61,23 @@ func runSync(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("not authenticated: %w", err)
 	}
 
-	// Get vault password (flag > combined file > legacy config > prompt)
+	// Get vault info to find its name
+	vault, err := apiClient.Vaults.GetVault(ctx, vaultID)
+	if err != nil {
+		return fmt.Errorf("get vault info: %w", err)
+	}
+
+	// Get vault password (flag > combined file by name > combined file by ID > prompt)
+	var combinedCreds *creds.Combined
 	if syncPassword == "" {
-		// Combined credentials file (preferred)
+		// Load combined credentials file if available
 		if cfg != nil && cfg.Auth.CombinedCredentialsFile != "" {
 			if c, err := creds.LoadFromFile(cfg.Auth.CombinedCredentialsFile); err == nil {
-				if pw := c.VaultPassword(vaultID); pw != "" {
+				combinedCreds = c
+				// Try to find password by vault name first, then by ID
+				if pw := c.VaultPassword(vault.Name); pw != "" {
+					syncPassword = pw
+				} else if pw := c.VaultPassword(vaultID); pw != "" {
 					syncPassword = pw
 				}
 				// If not authenticated yet and auth present, login automatically
@@ -78,22 +88,10 @@ func runSync(cmd *cobra.Command, args []string) error {
 				}
 			}
 		}
-		// Legacy: inline map in config
-		if syncPassword == "" && cfg != nil && cfg.Auth.VaultCredentials != nil {
-			if pw, ok := cfg.Auth.VaultCredentials[vaultID]; ok && pw != "" {
-				syncPassword = pw
-			}
-		}
-		// Legacy: separate credentials file
-		if syncPassword == "" && cfg != nil && cfg.Auth.VaultCredentialsFile != "" {
-			if pw, err := lookupVaultPasswordFromFile(cfg.Auth.VaultCredentialsFile, vaultID); err == nil && pw != "" {
-				syncPassword = pw
-			}
-		}
 		// Prompt as last resort
 		if syncPassword == "" {
 			tokenInfo, _ := apiClient.Auth.GetToken()
-			prompt := fmt.Sprintf("Vault password for %s: ", tokenInfo.Email)
+			prompt := fmt.Sprintf("Vault password for %s (%s): ", vault.Name, tokenInfo.Email)
 
 			var err error
 			syncPassword, err = promptPassword(prompt)
@@ -130,8 +128,16 @@ func runSync(cmd *cobra.Command, args []string) error {
 	if err := apiClient.SetStorageBase(destPath); err != nil {
 		return fmt.Errorf("set storage base: %w", err)
 	}
-	tokenInfo, _ := apiClient.Auth.GetToken()
-	apiClient.Sync.SetCredentials(tokenInfo.Email, syncPassword)
+	
+	// Set credentials for sync
+	if combinedCreds != nil {
+		// Use combined credentials (includes vault-specific passwords)
+		apiClient.Sync.SetCombinedCredentials(combinedCreds)
+	} else {
+		// Fall back to legacy method with manual password
+		tokenInfo, _ := apiClient.Auth.GetToken()
+		apiClient.Sync.SetCredentials(tokenInfo.Email, syncPassword)
+	}
 
 	// Start sync with progress display
 	if jsonOutput {
@@ -140,37 +146,6 @@ func runSync(cmd *cobra.Command, args []string) error {
 	return runSyncInteractive(ctx, vaultID)
 }
 
-// lookupVaultPasswordFromFile attempts to read a vault password from a JSON file.
-// Supported formats:
-// 1) { "vaults": { "<vault-id>": { "password": "..." } } }
-// 2) { "<vault-id>": "password" }
-func lookupVaultPasswordFromFile(path, vaultID string) (string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-
-	// Try nested format first
-	var nested struct {
-		Vaults map[string]struct {
-			Password string `json:"password"`
-		} `json:"vaults"`
-	}
-	if err := json.Unmarshal(data, &nested); err == nil && nested.Vaults != nil {
-		if v, ok := nested.Vaults[vaultID]; ok {
-			return v.Password, nil
-		}
-	}
-
-	// Try flat map format
-	var flat map[string]string
-	if err := json.Unmarshal(data, &flat); err == nil {
-		if pw, ok := flat[vaultID]; ok {
-			return pw, nil
-		}
-	}
-	return "", nil
-}
 
 func runSyncInteractive(ctx context.Context, vaultID string) error {
 	// Create progress display

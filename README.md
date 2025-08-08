@@ -12,28 +12,31 @@ go build -o obsync ./cmd/obsync
 
 ### 2. Set Up Your Credentials
 ```bash
-# Option A: Minimal required config (recommended to start)
+# Create your credentials file (REQUIRED)
+cp credentials.example.json credentials.json
+# Edit credentials.json with your Obsidian account details
+
+# Create your config file
 cp config.min.json config.json
-
-# Option B: Full example with all options
-# cp config.example.json config.json
-
-# Edit config.json with your Obsidian account details (email, password, totp_secret)
-# Optional: point to a per‑vault password file
-#   "auth.vault_credentials_file": "./vault_credentials.json"
+# The config will reference your credentials file
 ```
 
-Optional combined credentials file (for local/CI):
-```bash
-# Create a combined JSON with account + vault passwords
-# Example schema:
-# {
-#   "auth": {"email": "you@example.com", "password": "account-pass", "totp_secret": "BASE32"},
-#   "vaults": {"vault-abc123": {"password": "MyVaultPassword"}}
-# }
-# Reference it from config as:
-#   "auth.combined_credentials_file": "./combined.json"
+**Credentials File Format** (`credentials.json`):
+```json
+{
+  "auth": {
+    "email": "your@email.com",
+    "password": "your_account_password",
+    "totp_secret": "YOUR_TOTP_SECRET"  // Optional, for 2FA
+  },
+  "vaults": {
+    "vault-id-123": {"password": "vault_specific_password"},
+    "vault-id-456": {"password": "another_vault_password"}
+  }
+}
 ```
+
+**Note**: The combined credentials file is now the only supported method for providing credentials. This ensures consistency between CLI and Lambda deployments.
 
 ### 3. Sync Your Vault
 ```bash

@@ -47,9 +47,21 @@ AWS_REGION=us-east-1                           # AWS region
 
 #### Required Authentication
 ```bash
-OBSIDIAN_EMAIL=your-email@example.com
-OBSIDIAN_PASSWORD=your-secure-password
-OBSIDIAN_TOTP_SECRET=your-totp-secret         # Base32 encoded
+OBSYNC_SECRET_NAME=obsync-credentials         # AWS Secrets Manager secret name/ARN
+```
+
+The secret should contain combined credentials in JSON format:
+```json
+{
+  "auth": {
+    "email": "your-email@example.com",
+    "password": "your-secure-password",
+    "totp_secret": "your-totp-secret"  # Base32 encoded
+  },
+  "vaults": {
+    "My Vault": {"password": "vault-specific-password"}
+  }
+}
 ```
 
 #### Optional Configuration
@@ -359,13 +371,19 @@ export AWS_REGION="us-east-1"
 export AWS_ACCESS_KEY_ID="your-access-key"
 export AWS_SECRET_ACCESS_KEY="your-secret-key"
 
-# Set Obsidian credentials
-export OBSIDIAN_EMAIL="your-email@example.com"
-export OBSIDIAN_PASSWORD="your-password"
-export OBSIDIAN_TOTP_SECRET="your-totp-secret"
+# Create credentials file
+cp credentials.example.json credentials.json
+# Edit credentials.json with your account and vault passwords
+
+# Create config file
+echo '{
+  "auth": {
+    "combined_credentials_file": "./credentials.json"
+  }
+}' > config.json
 
 # Run sync with S3 storage (--s3 flag enables S3 mode)
-./obsync --s3 sync <vault-id> --dest ./vault-name --password <vault-password>
+./obsync --s3 sync <vault-id> --dest ./vault-name
 ```
 
 ### Lambda Environment Testing
@@ -449,9 +467,7 @@ Resources:
           S3_BUCKET: !Ref StorageBucket
           S3_PREFIX: "vaults/"
           S3_STATE_PREFIX: "state/"
-          OBSIDIAN_EMAIL: !Ref ObsidianEmail
-          OBSIDIAN_PASSWORD: !Ref ObsidianPassword
-          OBSIDIAN_TOTP_SECRET: !Ref ObsidianTotpSecret
+          OBSYNC_SECRET_NAME: !Ref ObsyncSecretArn
       Events:
         ScheduledSync:
           Type: Schedule
@@ -482,9 +498,7 @@ resource "aws_lambda_function" "obsync" {
       S3_BUCKET             = aws_s3_bucket.obsync.bucket
       S3_PREFIX            = "vaults/"
       S3_STATE_PREFIX      = "state/"
-      OBSIDIAN_EMAIL       = var.obsidian_email
-      OBSIDIAN_PASSWORD    = var.obsidian_password
-      OBSIDIAN_TOTP_SECRET = var.obsidian_totp_secret
+      OBSYNC_SECRET_NAME   = aws_secretsmanager_secret.obsync_credentials.arn
     }
   }
 }

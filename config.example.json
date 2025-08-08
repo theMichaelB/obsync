@@ -15,17 +15,12 @@
   },
   
   "auth": {
-    "_comment": "Authentication - email and password are REQUIRED",
-    "email": "john.doe@example.com",
-    "_email": "REQUIRED - Your Obsidian account email",
-    "password": "MySecureP@ssw0rd123!",
-    "_password": "REQUIRED - Your Obsidian account password",
-    "totp_secret": "JBSWY3DPEHPK3PXP",
-    "_totp_secret": "OPTIONAL - For 2FA, get from Obsidian Settings > Account > Two-factor authentication",
+    "_comment": "Authentication - combined_credentials_file is REQUIRED",
+    "combined_credentials_file": "./credentials.json",
+    "_combined_credentials_file": "REQUIRED - Path to JSON file with auth and vault passwords",
     "token_file": "./.obsync/auth/token.json",
     "_token_file": "DEFAULT: .obsync/auth/token.json - Where to cache auth token",
-    "vault_credentials_file": "./vault_credentials.json",
-    "_vault_credentials_file": "OPTIONAL - Path to vault passwords file"
+    "_note": "See credentials.example.json for the required credentials file format"
   },
   
   "storage": {

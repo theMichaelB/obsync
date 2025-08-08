@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/TheMichaelB/obsync/internal/creds"
 	"github.com/TheMichaelB/obsync/internal/crypto"
 	"github.com/TheMichaelB/obsync/internal/events"
 	"github.com/TheMichaelB/obsync/internal/services/auth"
@@ -20,7 +21,9 @@ type Service struct {
 	engine *Engine
 	logger *events.Logger
 
-	// User credentials (for key derivation)
+	// Combined credentials
+	creds    *creds.Combined
+	// Legacy: User credentials (for key derivation) - to be deprecated
 	email    string
 	password string
 }
@@ -46,7 +49,17 @@ func NewService(
 	}
 }
 
-// SetCredentials sets user credentials for key derivation.
+// SetCombinedCredentials sets combined credentials.
+func (s *Service) SetCombinedCredentials(c *creds.Combined) {
+	s.creds = c
+	// Also set legacy fields for compatibility
+	if c != nil {
+		s.email = c.Auth.Email
+		s.password = c.Auth.Password
+	}
+}
+
+// SetCredentials sets user credentials for key derivation (legacy).
 func (s *Service) SetCredentials(email, password string) {
 	s.email = email
 	s.password = password
@@ -59,8 +72,15 @@ func (s *Service) SyncVault(ctx context.Context, vaultID string, opts SyncOption
 		return fmt.Errorf("authentication failed: %w", err)
 	}
 
-	// Get vault key
-	if s.email == "" || s.password == "" {
+	// Get credentials from combined or legacy
+	email := s.email
+	password := s.password
+	if s.creds != nil {
+		email = s.creds.Auth.Email
+		password = s.creds.Auth.Password
+	}
+	
+	if email == "" || password == "" {
 		return fmt.Errorf("credentials not set")
 	}
 
@@ -70,7 +90,7 @@ func (s *Service) SyncVault(ctx context.Context, vaultID string, opts SyncOption
 		return fmt.Errorf("get vault info: %w", err)
 	}
 
-	vaultKey, err := s.vaults.GetVaultKey(ctx, vaultID, s.email, s.password)
+	vaultKey, err := s.vaults.GetVaultKey(ctx, vaultID, email, password)
 	if err != nil {
 		return fmt.Errorf("get vault key: %w", err)
 	}

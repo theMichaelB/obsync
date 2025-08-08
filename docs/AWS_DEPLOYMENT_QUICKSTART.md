@@ -5,7 +5,7 @@ This guide packages the existing Lambda docs into a simple, copy‑pasteable pat
 ## Prerequisites
 - AWS account + AWS CLI v2 configured (`aws sts get-caller-identity` works)
 - Go 1.24+, Make
-- Obsidian credentials (email, password, TOTP secret)
+- Obsidian credentials in combined JSON format (see credentials.example.json)
 
 ## TL;DR (10 minutes)
 1) Build the Lambda package
@@ -32,15 +32,20 @@ aws logs tail "/aws/lambda/obsync-sync" --follow
 - Optional CloudWatch schedule (disabled by default)
 
 ## Manual deploy (no Terraform)
-Use the helper script (creates/updates code only; role/bucket must exist):
+First, create a secret in AWS Secrets Manager with your combined credentials:
+```bash
+aws secretsmanager create-secret \
+  --name obsync-credentials \
+  --secret-string file://credentials.json
+```
+
+Then use the helper script (creates/updates code only; role/bucket must exist):
 ```bash
 ./scripts/deploy-lambda.sh \
   --function obsync-sync \
   --role arn:aws:iam::<ACCOUNT_ID>:role/obsync-lambda-role \
   --region us-east-1 \
-  --env OBSIDIAN_EMAIL=you@example.com \
-  --env OBSIDIAN_PASSWORD=secret \
-  --env OBSIDIAN_TOTP_SECRET=BASE32 \
+  --env OBSYNC_SECRET_NAME=obsync-credentials \
   --env S3_BUCKET=your-bucket --env S3_PREFIX=vaults/ --env S3_STATE_PREFIX=state/
 ```
 
@@ -66,8 +71,8 @@ Secret JSON schema:
     "totp_secret": "BASE32_TOTP"
   },
   "vaults": {
-    "vault-abc123": {"password": "MyVaultPassword"},
-    "vault-xyz789": {"password": "OtherPassword"}
+    "My Work Vault": {"password": "MyVaultPassword"},
+    "Personal Notes": {"password": "OtherPassword"}
   }
 }
 ```

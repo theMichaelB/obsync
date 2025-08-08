@@ -8,12 +8,9 @@ timeout              = 900
 enable_schedule      = false
 schedule_expression  = "rate(1 hour)"
 
-obsidian_email       = "you@example.com"
-obsidian_password    = "REPLACE_ME"
-obsidian_totp_secret = "BASE32_REPLACE_ME"
+# Required: ARN of Secrets Manager secret containing combined credentials
+# Create with: aws secretsmanager create-secret --name obsync-credentials --secret-string file://credentials.json
+secrets_manager_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:obsync-credentials-abc123"
 
 s3_prefix        = "vaults/"
 s3_state_prefix  = "state/"
-
-# Optional combined secret (Secrets Manager ARN)
-secrets_manager_secret_arn = ""

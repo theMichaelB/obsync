@@ -39,25 +39,12 @@ type APIConfig struct {
 
 // AuthConfig for authentication settings.
 type AuthConfig struct {
-    // Obsidian account credentials
-    Email    string `json:"email,omitempty"`
-    Password string `json:"password,omitempty"`
-	
-	// TOTP/MFA configuration
-	TOTPSecret string `json:"totp_secret,omitempty"`
-	
     // Token persistence
     TokenFile string `json:"token_file"`
 
-    // Vault credentials file path (deprecated in favor of CombinedCredentialsFile)
-    VaultCredentialsFile string `json:"vault_credentials_file"`
-
-    // Alternative: inline vault credentials (not recommended for production)
-    VaultCredentials map[string]string `json:"vault_credentials,omitempty"`
-
-    // Preferred: single combined JSON that includes account + vault passwords
-    // Same schema used for Lambda Secrets Manager:
-    // { "auth": { email, password, totp_secret }, "vaults": { "<id>": {"password":"..."} } }
+    // Combined JSON credentials file that includes account + vault passwords
+    // Schema: { "auth": { email, password, totp_secret }, "vaults": { "<id>": {"password":"..."} } }
+    // This is the only supported way to provide credentials
     CombinedCredentialsFile string `json:"combined_credentials_file,omitempty"`
 }
 

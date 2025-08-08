@@ -26,4 +26,4 @@ Outputs include the Lambda function name and S3 bucket name.
 - `schedule_expression`: Change schedule (default `rate(1 hour)`)
 
 ## Credentials
-Provide Obsidian credentials and TOTP secret via Terraform variables. Consider using AWS SSM/Secrets Manager for production.
+Provide credentials via AWS Secrets Manager. Set `secrets_manager_secret_arn` in terraform.tfvars to the ARN of a secret containing combined credentials in JSON format (see credentials.example.json).

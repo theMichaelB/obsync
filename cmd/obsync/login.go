@@ -2,7 +2,6 @@ package main
 
 import (
     "context"
-    "encoding/json"
     "fmt"
     "os"
     "syscall"
@@ -71,20 +70,20 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	}
 
 	// Generate TOTP code if not provided but secret is available
-    if loginTOTP == "" && cfg.Auth.TOTPSecret != "" {
+    if loginTOTP != "" && len(loginTOTP) != 6 {
+        // If loginTOTP is provided but not a 6-digit code, treat it as a secret
         totpService := totp.NewService()
 		
 		// Validate the secret first
-		if err := totpService.IsValidSecret(cfg.Auth.TOTPSecret); err != nil {
+		if err := totpService.IsValidSecret(loginTOTP); err != nil {
 			if !jsonOutput {
-				printError("Invalid TOTP secret in config: %v", err)
-				printInfo("Please check your totp_secret in the configuration file")
+				printError("Invalid TOTP secret: %v", err)
 			}
 			return fmt.Errorf("invalid totp_secret: %w", err)
 		}
 
 		// Generate current TOTP code
-		code, err := totpService.GenerateCode(cfg.Auth.TOTPSecret)
+		code, err := totpService.GenerateCode(loginTOTP)
 		if err != nil {
 			if !jsonOutput {
 				printError("Failed to generate TOTP code: %v", err)

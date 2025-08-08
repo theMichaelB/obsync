@@ -130,29 +130,12 @@ func (l *Loader) loadEnv(cfg *Config) error {
 	}
 	
 	// Auth settings
-	if v := os.Getenv(l.envPrefix + "EMAIL"); v != "" {
-		cfg.Auth.Email = v
+	if v := os.Getenv(l.envPrefix + "COMBINED_CREDENTIALS_FILE"); v != "" {
+		cfg.Auth.CombinedCredentialsFile = v
 	}
 	
-	if v := os.Getenv(l.envPrefix + "PASSWORD"); v != "" {
-		cfg.Auth.Password = v
-	}
-	
-	if v := os.Getenv(l.envPrefix + "TOTP_SECRET"); v != "" {
-		cfg.Auth.TOTPSecret = v
-	}
-	
-	// Alternative environment variable names for compatibility
-	if v := os.Getenv("OBSIDIAN_EMAIL"); v != "" {
-		cfg.Auth.Email = v
-	}
-	
-	if v := os.Getenv("OBSIDIAN_PASSWORD"); v != "" {
-		cfg.Auth.Password = v
-	}
-	
-	if v := os.Getenv("OBSIDIAN_TOTP_SECRET"); v != "" {
-		cfg.Auth.TOTPSecret = v
+	if v := os.Getenv(l.envPrefix + "TOKEN_FILE"); v != "" {
+		cfg.Auth.TokenFile = v
 	}
 	
 	// Dev settings

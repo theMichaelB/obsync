@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/TheMichaelB/obsync/internal/creds"
 	"github.com/TheMichaelB/obsync/internal/events"
 	"github.com/TheMichaelB/obsync/internal/models"
 	"github.com/TheMichaelB/obsync/internal/transport"
@@ -20,6 +21,9 @@ type Service struct {
 	// Token cache
 	token     *models.TokenInfo
 	tokenFile string
+	
+	// Combined credentials (optional)
+	creds     *creds.Combined
 }
 
 // NewService creates an auth service.
@@ -31,8 +35,31 @@ func NewService(transport transport.Transport, tokenFile string, logger *events.
 	}
 }
 
-// Login authenticates with email and password.
+// SetCredentials sets the combined credentials.
+func (s *Service) SetCredentials(c *creds.Combined) {
+	s.creds = c
+}
+
+// Login authenticates using combined credentials or provided parameters.
 func (s *Service) Login(ctx context.Context, email, password, totp string) error {
+	// Use combined credentials if available and parameters not provided
+	if s.creds != nil {
+		if email == "" {
+			email = s.creds.Auth.Email
+		}
+		if password == "" {
+			password = s.creds.Auth.Password
+		}
+		if totp == "" {
+			totp = s.creds.Auth.TOTPSecret
+		}
+	}
+	
+	// Validate we have required credentials
+	if email == "" || password == "" {
+		return fmt.Errorf("email and password required")
+	}
+	
 	s.logger.WithField("email", email).Info("Logging in")
 
 	req := models.AuthRequest{

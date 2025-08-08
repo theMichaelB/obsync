@@ -61,6 +61,11 @@ data "aws_iam_policy_document" "lambda_policy" {
     actions = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
     resources = ["arn:aws:logs:*:*:*"]
   }
+  statement {
+    effect = "Allow"
+    actions = ["secretsmanager:GetSecretValue"]
+    resources = [var.secrets_manager_secret_arn]
+  }
 }
 
 resource "aws_iam_policy" "lambda_policy" {
@@ -91,9 +96,7 @@ resource "aws_lambda_function" "obsync" {
 
   environment {
     variables = {
-      OBSIDIAN_EMAIL       = var.obsidian_email
-      OBSIDIAN_PASSWORD    = var.obsidian_password
-      OBSIDIAN_TOTP_SECRET = var.obsidian_totp_secret
+      OBSYNC_SECRET_NAME   = var.secrets_manager_secret_arn
       S3_BUCKET            = aws_s3_bucket.obsync.id
       S3_PREFIX            = var.s3_prefix
       S3_STATE_PREFIX      = var.s3_state_prefix

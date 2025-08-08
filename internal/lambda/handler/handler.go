@@ -8,6 +8,7 @@ import (
     
     "github.com/TheMichaelB/obsync/internal/client"
     "github.com/TheMichaelB/obsync/internal/config"
+    "github.com/TheMichaelB/obsync/internal/creds"
     "github.com/TheMichaelB/obsync/internal/events"
     syncsvc "github.com/TheMichaelB/obsync/internal/services/sync"
 )
@@ -37,11 +38,7 @@ type Response struct {
 type Handler struct {
     client *client.Client
     logger *events.Logger
-    // Secrets-derived values
-    vaultPasswords    map[string]string
-    clientAuthEmail   string
-    clientAuthPassword string
-    clientAuthTOTP    string
+    creds  *creds.Combined  // Combined credentials
 }
 
 func NewHandler() (*Handler, error) {
@@ -72,10 +69,14 @@ func NewHandler() (*Handler, error) {
         logger: logger,
     }
 
-    // Optionally load combined secret
+    // Load combined credentials from secret if configured
     if v := os.Getenv("OBSYNC_SECRET_NAME"); v != "" {
-        if err := h.loadCombinedSecret(context.Background(), v); err != nil {
-            logger.WithError(err).Warn("Failed to load combined secret; continuing with env/config")
+        combinedCreds, err := creds.LoadFromSecret(context.Background(), v)
+        if err != nil {
+            logger.WithError(err).Warn("Failed to load combined secret; continuing without")
+        } else {
+            h.creds = combinedCreds
+            lambdaClient.SetCredentials(combinedCreds)
         }
     }
 
@@ -160,22 +161,18 @@ func (h *Handler) handleSync(ctx context.Context, event Event, start time.Time) 
 func (h *Handler) syncVault(ctx context.Context, vaultID string, complete bool) (int, error) {
     h.logger.WithField("vault_id", vaultID).Info("Starting vault sync")
 
-    // Resolve credentials from secret (if provided)
-    if h.clientAuthEmail == "" || h.clientAuthPassword == "" {
-        return 0, fmt.Errorf("missing account credentials")
-    }
-    vaultPass, ok := h.vaultPasswords[vaultID]
-    if !ok || vaultPass == "" {
-        return 0, fmt.Errorf("missing vault password for %s", vaultID)
+    // Ensure we have combined credentials
+    if h.creds == nil {
+        return 0, fmt.Errorf("missing combined credentials")
     }
 
-    // Login using provided credentials; TOTP optional
-    if err := h.client.Auth.Login(ctx, h.clientAuthEmail, h.clientAuthPassword, h.clientAuthTOTP); err != nil {
+    // Login using combined credentials
+    if err := h.client.Auth.Login(ctx, h.creds.Auth.Email, h.creds.Auth.Password, h.creds.Auth.TOTPSecret); err != nil {
         return 0, fmt.Errorf("login failed: %w", err)
     }
 
-    // Configure sync
-    h.client.Sync.SetCredentials(h.clientAuthEmail, vaultPass)
+    // Set combined credentials for sync (includes vault-specific passwords)
+    h.client.Sync.SetCombinedCredentials(h.creds)
 
     // Run sync (incremental unless complete)
     opts := syncsvc.SyncOptions{Initial: complete}
@@ -193,17 +190,6 @@ func loadLambdaConfig() (*config.Config, error) {
 	cfg.Storage.StateDir = "/tmp/obsync/state" 
 	cfg.Storage.TempDir = "/tmp/obsync/temp"
 	cfg.Storage.MaxFileSize = 400 * 1024 * 1024 // Leave headroom in /tmp
-	
-	// Load from environment
-	if email := os.Getenv("OBSIDIAN_EMAIL"); email != "" {
-		cfg.Auth.Email = email
-	}
-	if password := os.Getenv("OBSIDIAN_PASSWORD"); password != "" {
-		cfg.Auth.Password = password
-	}
-	if totpSecret := os.Getenv("OBSIDIAN_TOTP_SECRET"); totpSecret != "" {
-		cfg.Auth.TOTPSecret = totpSecret
-	}
 	
 	return cfg, nil
 }

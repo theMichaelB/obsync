@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/TheMichaelB/obsync/internal/creds"
 	"github.com/TheMichaelB/obsync/internal/crypto"
 	"github.com/TheMichaelB/obsync/internal/events"
 	"github.com/TheMichaelB/obsync/internal/models"
@@ -15,6 +16,7 @@ type Service struct {
 	transport transport.Transport
 	crypto    crypto.Provider
 	logger    *events.Logger
+	creds     *creds.Combined // Combined credentials
 
 	// Cache
 	vaults map[string]*models.Vault
@@ -99,6 +101,11 @@ func (s *Service) GetVault(ctx context.Context, vaultID string) (*models.Vault, 
 	return nil, fmt.Errorf("vault not found: %s", vaultID)
 }
 
+// SetCredentials sets combined credentials.
+func (s *Service) SetCredentials(c *creds.Combined) {
+	s.creds = c
+}
+
 // GetVaultKey derives the encryption key for a vault.
 func (s *Service) GetVaultKey(ctx context.Context, vaultID, email, password string) ([]byte, error) {
 	// Check cache
@@ -117,6 +124,23 @@ func (s *Service) GetVaultKey(ctx context.Context, vaultID, email, password stri
 		"encryption_version": vault.EncryptionInfo.EncryptionVersion,
 	}).Debug("Deriving vault key")
 
+	// Use vault-specific password if available in combined credentials
+	vaultPassword := password
+	if s.creds != nil {
+		// Try to find password by vault name first, then by ID
+		if vp := s.creds.VaultPassword(vault.Name); vp != "" {
+			vaultPassword = vp
+			s.logger.WithField("vault_name", vault.Name).Debug("Using vault-specific password by name")
+		} else if vp := s.creds.VaultPassword(vaultID); vp != "" {
+			vaultPassword = vp
+			s.logger.WithField("vault_id", vaultID).Debug("Using vault-specific password by ID")
+		}
+		// Use email from combined creds if not provided
+		if email == "" {
+			email = s.creds.Auth.Email
+		}
+	}
+
 	// Derive key
 	keyInfo := crypto.VaultKeyInfo{
 		Version:           vault.EncryptionInfo.Version,
@@ -124,7 +148,7 @@ func (s *Service) GetVaultKey(ctx context.Context, vaultID, email, password stri
 		Salt:              vault.EncryptionInfo.Salt, // Pass salt as-is, crypto provider handles encoding
 	}
 
-	key, err := s.crypto.DeriveKey(email, password, keyInfo)
+	key, err := s.crypto.DeriveKey(email, vaultPassword, keyInfo)
 	if err != nil {
 		return nil, fmt.Errorf("derive key: %w", err)
 	}

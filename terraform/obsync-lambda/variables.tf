@@ -40,23 +40,6 @@ variable "schedule_expression" {
   default     = "rate(1 hour)"
 }
 
-variable "obsidian_email" {
-  description = "Obsidian account email"
-  type        = string
-}
-
-variable "obsidian_password" {
-  description = "Obsidian account password"
-  type        = string
-  sensitive   = true
-}
-
-variable "obsidian_totp_secret" {
-  description = "Obsidian TOTP secret (BASE32)"
-  type        = string
-  sensitive   = true
-}
-
 variable "s3_prefix" {
   description = "Prefix for vault objects"
   type        = string
@@ -70,7 +53,6 @@ variable "s3_state_prefix" {
 }
 
 variable "secrets_manager_secret_arn" {
-  description = "ARN of a Secrets Manager secret containing combined JSON (auth + vault passwords). Optional."
+  description = "ARN of Secrets Manager secret containing combined credentials JSON (required)"
   type        = string
-  default     = ""
 }

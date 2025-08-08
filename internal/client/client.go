@@ -1,10 +1,12 @@
 package client
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/TheMichaelB/obsync/internal/config"
+	"github.com/TheMichaelB/obsync/internal/creds"
 	"github.com/TheMichaelB/obsync/internal/crypto"
 	"github.com/TheMichaelB/obsync/internal/events"
 	"github.com/TheMichaelB/obsync/internal/models"
@@ -24,6 +26,7 @@ type Client struct {
 	State  StateManager
 	
 	config    *config.Config
+	creds     *creds.Combined  // Combined credentials
 	logger    *events.Logger
 	transport transport.Transport
 	storage   storage.BlobStore
@@ -38,6 +41,16 @@ type StateManager interface {
 
 // New creates a new Obsync client.
 func New(cfg *config.Config, logger *events.Logger) (*Client, error) {
+	// Load combined credentials if configured
+	var combinedCreds *creds.Combined
+	if cfg.Auth.CombinedCredentialsFile != "" {
+		var err error
+		combinedCreds, err = creds.LoadFromFile(cfg.Auth.CombinedCredentialsFile)
+		if err != nil {
+			return nil, fmt.Errorf("load combined credentials: %w", err)
+		}
+	}
+
 	// Create transport
 	transportClient := transport.NewTransport(&cfg.API, logger)
 
@@ -74,6 +87,12 @@ func New(cfg *config.Config, logger *events.Logger) (*Client, error) {
 	authService := auth.NewService(transportClient, tokenFile, logger)
 	vaultsService := vaults.NewService(transportClient, cryptoProvider, logger)
 	
+	// Set combined credentials if available
+	if combinedCreds != nil {
+		authService.SetCredentials(combinedCreds)
+		vaultsService.SetCredentials(combinedCreds)
+	}
+	
 	syncConfig := &sync.SyncConfig{
 		MaxConcurrent: cfg.Sync.MaxConcurrent,
 		ChunkSize:     cfg.Sync.ChunkSize,
@@ -88,6 +107,11 @@ func New(cfg *config.Config, logger *events.Logger) (*Client, error) {
 		syncConfig,
 		logger,
 	)
+	
+	// Set combined credentials if available
+	if combinedCreds != nil {
+		syncService.SetCombinedCredentials(combinedCreds)
+	}
 
 	client := &Client{
 		Auth:      authService,
@@ -95,6 +119,7 @@ func New(cfg *config.Config, logger *events.Logger) (*Client, error) {
 		Sync:      syncService,
 		State:     &stateManager{store: stateStore},
 		config:    cfg,
+		creds:     combinedCreds,
 		logger:    logger,
 		transport: transportClient,
 		storage:   blobStore,
@@ -154,4 +179,14 @@ func (sm *stateManager) LoadState(vaultID string) (*models.SyncState, error) {
 
 func (sm *stateManager) Reset(vaultID string) error {
 	return sm.store.Reset(vaultID)
+}
+
+// GetCredentials returns the combined credentials if available.
+func (c *Client) GetCredentials() *creds.Combined {
+	return c.creds
+}
+
+// SetCredentials sets the combined credentials.
+func (c *Client) SetCredentials(combinedCreds *creds.Combined) {
+	c.creds = combinedCreds
 }

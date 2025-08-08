@@ -221,6 +221,20 @@ The build process:
 
 ### 2. Deploy Function
 
+First, create a secret in AWS Secrets Manager with your combined credentials:
+
+```bash
+# Create secret from credentials file
+aws secretsmanager create-secret \
+  --name obsync-credentials \
+  --secret-string file://credentials.json
+
+# Get the secret ARN
+SECRET_ARN=$(aws secretsmanager describe-secret --secret-id obsync-credentials --query ARN --output text)
+```
+
+Then deploy the Lambda function:
+
 ```bash
 # Deploy Lambda function
 aws lambda create-function \
@@ -233,9 +247,7 @@ aws lambda create-function \
   --timeout 900 \
   --memory-size 1024 \
   --environment Variables='{
-    "OBSIDIAN_EMAIL": "your@email.com",
-    "OBSIDIAN_PASSWORD": "your-password",
-    "OBSIDIAN_TOTP_SECRET": "YOUR_BASE32_SECRET",
+    "OBSYNC_SECRET_NAME": "'$SECRET_ARN'",
     "S3_BUCKET": "'$BUCKET_NAME'",
     "S3_PREFIX": "vaults/",
     "S3_STATE_PREFIX": "state/",
@@ -267,14 +279,11 @@ aws logs describe-log-groups --log-group-name-prefix "/aws/lambda/obsync-sync"
 
 | Variable | Required | Description | Example |
 |----------|----------|-------------|---------|
-| `OBSIDIAN_EMAIL` | Yes | Obsidian account email | `user@example.com` |
-| `OBSIDIAN_PASSWORD` | Yes | Obsidian account password | `secure-password` |
-| `OBSIDIAN_TOTP_SECRET` | Yes | TOTP secret key | `BASE32ENCODED` |
+| `OBSYNC_SECRET_NAME` | Yes | Secrets Manager name/ARN containing combined credentials | `obsync-credentials` or full ARN |
 | `S3_BUCKET` | Yes | S3 bucket name | `obsync-bucket` |
 | `S3_PREFIX` | No | Vault storage prefix | `vaults/` |
 | `S3_STATE_PREFIX` | No | State storage prefix | `state/` |
 | `AWS_REGION` | No | AWS region | `us-east-1` |
-| `OBSYNC_SECRET_NAME` | No | Secrets Manager name/ARN of combined JSON secret (auth + vaults) | `arn:aws:secretsmanager:...:secret:obsync/combined-abc` |
 
 ### Lambda-Specific Configuration
 
@@ -288,30 +297,7 @@ aws logs describe-log-groups --log-group-name-prefix "/aws/lambda/obsync-sync"
 
 ### Secure Configuration Management
 
-#### Option 1: AWS Systems Manager Parameter Store
-
-```bash
-# Store sensitive parameters
-aws ssm put-parameter \
-  --name "/obsync/obsidian/email" \
-  --value "your@email.com" \
-  --type "SecureString"
-
-aws ssm put-parameter \
-  --name "/obsync/obsidian/password" \
-  --value "your-password" \
-  --type "SecureString"
-
-# Update Lambda to use parameters
-aws lambda update-function-configuration \
-  --function-name obsync-sync \
-  --environment Variables='{
-    "OBSIDIAN_EMAIL_PARAM": "/obsync/obsidian/email",
-    "OBSIDIAN_PASSWORD_PARAM": "/obsync/obsidian/password"
-  }'
-```
-
-#### Option 2: AWS Secrets Manager (Combined JSON)
+#### AWS Secrets Manager (Recommended)
 
 ```bash
 # Create combined secret for account + vault passwords
@@ -324,7 +310,8 @@ aws secretsmanager create-secret \
       "totp_secret": "YOUR_BASE32_SECRET"
     },
     "vaults": {
-      "vault-abc123": {"password": "MyVaultPassword"}
+      "My Vault": {"password": "MyVaultPassword"},
+      "Work Notes": {"password": "WorkVaultPassword"}
     }
   }'
 
@@ -349,14 +336,9 @@ Parameters:
     Type: String
     Default: !Sub 'obsync-${AWS::AccountId}'
   
-  ObsidianEmail:
+  ObsyncSecretArn:
     Type: String
-    Description: Obsidian account email
-  
-  ObsidianPassword:
-    Type: String
-    NoEcho: true
-    Description: Obsidian account password
+    Description: ARN of Secrets Manager secret containing combined credentials
 
 Resources:
   ObsyncBucket:
@@ -383,8 +365,7 @@ Resources:
       MemorySize: 1024
       Environment:
         Variables:
-          OBSIDIAN_EMAIL: !Ref ObsidianEmail
-          OBSIDIAN_PASSWORD: !Ref ObsidianPassword
+          OBSYNC_SECRET_NAME: !Ref ObsyncSecretArn
           S3_BUCKET: !Ref ObsyncBucket
           S3_PREFIX: vaults/
           S3_STATE_PREFIX: state/
@@ -540,9 +521,7 @@ resource "aws_lambda_function" "obsync" {
 
   environment {
     variables = {
-      OBSIDIAN_EMAIL      = var.obsidian_email
-      OBSIDIAN_PASSWORD   = var.obsidian_password
-      OBSIDIAN_TOTP_SECRET = var.obsidian_totp_secret
+      OBSYNC_SECRET_NAME  = aws_secretsmanager_secret.obsync_credentials.arn
       S3_BUCKET          = aws_s3_bucket.obsync.id
       S3_PREFIX          = "vaults/"
       S3_STATE_PREFIX    = "state/"
