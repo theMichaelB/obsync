@@ -50,3 +50,16 @@ Use the helper script (creates/updates code only; role/bucket must exist):
 - Review security tips in `SECURITY.md`
 
 Troubleshooting and advanced options: `docs/LAMBDA_DEPLOYMENT.md`.
+
+## Credentials Model
+- Account credentials: used to authenticate to Obsidian.
+  - Lambda: set `OBSIDIAN_EMAIL`, `OBSIDIAN_PASSWORD`, and optionally `OBSIDIAN_TOTP_SECRET` as environment variables (or store in Secrets Manager/SSM and expose as envs).
+  - CLI: run `obsync login --email ...` (prompts for password/TOTP) or set them in `config.json` under `auth`.
+- Vault credentials: per‑vault password used to derive the vault encryption key.
+  - CLI: pass with `--password` or let the tool prompt. For non‑interactive runs, you can also provide a file and reference it from `config.json`:
+    - `auth.vault_credentials_file`: path to a JSON file mapping vault IDs to passwords. Example:
+      ```json
+      {"vaults": {"vault-abc123": {"password": "MyVaultPassword"}}}
+      ```
+      The CLI will pick this up automatically if present.
+  - Lambda: retrieving vault passwords securely (e.g., from Secrets Manager) should be wired in the handler for your environment. Until that is in place, prefer running the CLI in `--s3` mode within a scheduled job (ECS/EKS/EC2/GitHub Actions) where you can pass `--password` from a secret.

@@ -12,10 +12,25 @@ go build -o obsync ./cmd/obsync
 
 ### 2. Set Up Your Credentials
 ```bash
-# Copy the config template
-cp config.template.json config.json
+# Copy the example config
+cp config.example.json config.json
 
 # Edit config.json with your Obsidian account details
+# Optional: point to a per‑vault password file
+#   "auth.vault_credentials_file": "./vault_credentials.json"
+```
+
+Optional vault password file (for encrypted vaults):
+```bash
+# Create a vault credentials file at the path you set above
+# Supported formats (either works):
+# 1) Nested
+# {"vaults": {"<vault-id>": {"password": "MyVaultPassword"}}}
+# 2) Flat
+# {"<vault-id>": "MyVaultPassword"}
+
+# A starter example is provided at vault_credentials.example.json
+cp vault_credentials.example.json vault_credentials.json
 ```
 
 ### 3. Sync Your Vault
@@ -180,7 +195,8 @@ cp config.template.json config.json
     "email": "your@email.com",
     "password": "your-password",
     "totp_secret": "YOUR_BASE32_SECRET",
-    "token_file": ".obsync/auth/token.json"
+    "token_file": ".obsync/auth/token.json",
+    "vault_credentials_file": "./vault_credentials.json"
   },
   "storage": {
     "data_dir": ".obsync/vaults",
@@ -197,6 +213,15 @@ cp config.template.json config.json
     "format": "text"
   }
 }
+```
+
+Vault credentials file examples:
+```json
+{"vaults": {"vault-abc123": {"password": "MyVaultPassword"}}}
+```
+or
+```json
+{"vault-abc123": "MyVaultPassword"}
 ```
 
 ### Environment Variables
