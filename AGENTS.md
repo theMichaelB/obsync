@@ -45,6 +45,6 @@ make test-integration           # runs ./test/integration with -tags=integration
 - Run `make fmt lint test` before pushing; include config/sample updates if flags or fields change.
 
 ## Security & Configuration
-- Never commit secrets; use `config.example.json` and environment variables.
+- Never commit secrets; use `config.min.json` for minimal local setup or `config.example.json` for full options, and prefer environment variables in CI.
 - Local state lives under `.obsync/` by default; mind permissions (0600 for secrets).
 - For S3/Lambda, ensure `AWS_*` and `S3_*` env vars are set; see `docs/` and `README.md`.

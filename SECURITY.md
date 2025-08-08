@@ -4,15 +4,15 @@
 
 ### Setup Instructions
 
-1. **Copy the template config:**
+1. **Start from the minimal config:**
    ```bash
-   cp config.template.json config.json
+   cp config.min.json config.json
    ```
 
-2. **Edit config.json with your credentials:**
+2. **Edit config.json with your credentials (all required in the minimal file):**
    - Never commit this file to git
-   - Use strong, unique passwords
-   - Enable 2FA on your Obsidian account
+   - Fields: `auth.email`, `auth.password`, `auth.totp_secret`
+   - Use strong, unique passwords and enable 2FA/TOTP
 
 3. **Alternative: Use environment variables:**
    ```bash

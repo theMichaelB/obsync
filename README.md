@@ -12,10 +12,13 @@ go build -o obsync ./cmd/obsync
 
 ### 2. Set Up Your Credentials
 ```bash
-# Copy the example config
-cp config.example.json config.json
+# Option A: Minimal required config (recommended to start)
+cp config.min.json config.json
 
-# Edit config.json with your Obsidian account details
+# Option B: Full example with all options
+# cp config.example.json config.json
+
+# Edit config.json with your Obsidian account details (email, password, totp_secret)
 # Optional: point to a per‑vault password file
 #   "auth.vault_credentials_file": "./vault_credentials.json"
 ```

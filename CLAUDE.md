@@ -413,7 +413,7 @@ Set `dev.save_websocket_trace: true` in config to save WebSocket communications 
 2. Set default in DefaultConfig()
 3. Add validation in Validate()
 4. Add environment variable mapping
-5. Update config.template.json
+5. Update config.min.json (and config.example.json if new options)
 6. Document in README.md
 
 ### Implementing New WebSocket Message Type
