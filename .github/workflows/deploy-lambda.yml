@@ -1,0 +1,52 @@
+name: Deploy Lambda (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      aws-region:
+        description: AWS region
+        required: true
+        default: us-east-1
+      function-name:
+        description: Lambda function name
+        required: true
+        default: obsync-sync
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ github.event.inputs["aws-region"] }}
+          role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
+
+      - name: Build Lambda package
+        run: make build-lambda
+
+      - name: Deploy code update
+        env:
+          FN: ${{ github.event.inputs["function-name"] }}
+          REGION: ${{ github.event.inputs["aws-region"] }}
+        run: |
+          set -e
+          if aws lambda get-function --function-name "$FN" >/dev/null 2>&1; then
+            aws lambda update-function-code \
+              --function-name "$FN" \
+              --zip-file fileb://build/obsync-lambda.zip
+          else
+            echo "Function $FN not found. Create it first (see docs/AWS_DEPLOYMENT_QUICKSTART.md)."
+            exit 1
+          fi

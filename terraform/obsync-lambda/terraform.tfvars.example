@@ -1,0 +1,16 @@
+# Copy to terraform.tfvars and edit values
+
+aws_region           = "us-east-1"
+function_name        = "obsync-sync"
+lambda_zip_path      = "../../build/obsync-lambda.zip"
+memory_size          = 1024
+timeout              = 900
+enable_schedule      = false
+schedule_expression  = "rate(1 hour)"
+
+obsidian_email       = "you@example.com"
+obsidian_password    = "REPLACE_ME"
+obsidian_totp_secret = "BASE32_REPLACE_ME"
+
+s3_prefix        = "vaults/"
+s3_state_prefix  = "state/"
