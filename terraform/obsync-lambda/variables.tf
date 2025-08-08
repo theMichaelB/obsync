@@ -68,3 +68,9 @@ variable "s3_state_prefix" {
   type        = string
   default     = "state/"
 }
+
+variable "secrets_manager_secret_arn" {
+  description = "ARN of a Secrets Manager secret containing combined JSON (auth + vault passwords). Optional."
+  type        = string
+  default     = ""
+}

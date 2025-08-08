@@ -1,14 +1,15 @@
 package handler
 
 import (
-	"context"
-	"fmt"
-	"os"
-	"time"
-	
-	"github.com/TheMichaelB/obsync/internal/client"
-	"github.com/TheMichaelB/obsync/internal/config"
-	"github.com/TheMichaelB/obsync/internal/events"
+    "context"
+    "fmt"
+    "os"
+    "time"
+    
+    "github.com/TheMichaelB/obsync/internal/client"
+    "github.com/TheMichaelB/obsync/internal/config"
+    "github.com/TheMichaelB/obsync/internal/events"
+    syncsvc "github.com/TheMichaelB/obsync/internal/services/sync"
 )
 
 // Event represents the Lambda input event
@@ -34,8 +35,13 @@ type Response struct {
 }
 
 type Handler struct {
-	client *client.Client
-	logger *events.Logger
+    client *client.Client
+    logger *events.Logger
+    // Secrets-derived values
+    vaultPasswords    map[string]string
+    clientAuthEmail   string
+    clientAuthPassword string
+    clientAuthTOTP    string
 }
 
 func NewHandler() (*Handler, error) {
@@ -55,16 +61,25 @@ func NewHandler() (*Handler, error) {
 		return nil, fmt.Errorf("create logger: %w", err)
 	}
 	
-	// Create client with Lambda adapters
-	lambdaClient, err := client.NewLambdaClient(cfg, logger)
-	if err != nil {
-		return nil, fmt.Errorf("create client: %w", err)
-	}
-	
-	return &Handler{
-		client: lambdaClient,
-		logger: logger,
-	}, nil
+    // Create client with Lambda adapters
+    lambdaClient, err := client.NewLambdaClient(cfg, logger)
+    if err != nil {
+        return nil, fmt.Errorf("create client: %w", err)
+    }
+
+    h := &Handler{
+        client: lambdaClient,
+        logger: logger,
+    }
+
+    // Optionally load combined secret
+    if v := os.Getenv("OBSYNC_SECRET_NAME"); v != "" {
+        if err := h.loadCombinedSecret(context.Background(), v); err != nil {
+            logger.WithError(err).Warn("Failed to load combined secret; continuing with env/config")
+        }
+    }
+
+    return h, nil
 }
 
 func (h *Handler) ProcessEvent(ctx context.Context, event Event) (Response, error) {
@@ -143,11 +158,31 @@ func (h *Handler) handleSync(ctx context.Context, event Event, start time.Time) 
 }
 
 func (h *Handler) syncVault(ctx context.Context, vaultID string, complete bool) (int, error) {
-	h.logger.WithField("vault_id", vaultID).Info("Starting vault sync")
-	
-	// For now, return placeholder values
-	// TODO: Implement actual sync logic using the client
-	return 0, nil
+    h.logger.WithField("vault_id", vaultID).Info("Starting vault sync")
+
+    // Resolve credentials from secret (if provided)
+    if h.clientAuthEmail == "" || h.clientAuthPassword == "" {
+        return 0, fmt.Errorf("missing account credentials")
+    }
+    vaultPass, ok := h.vaultPasswords[vaultID]
+    if !ok || vaultPass == "" {
+        return 0, fmt.Errorf("missing vault password for %s", vaultID)
+    }
+
+    // Login using provided credentials; TOTP optional
+    if err := h.client.Auth.Login(ctx, h.clientAuthEmail, h.clientAuthPassword, h.clientAuthTOTP); err != nil {
+        return 0, fmt.Errorf("login failed: %w", err)
+    }
+
+    // Configure sync
+    h.client.Sync.SetCredentials(h.clientAuthEmail, vaultPass)
+
+    // Run sync (incremental unless complete)
+    opts := syncsvc.SyncOptions{Initial: complete}
+    if err := h.client.Sync.SyncVault(ctx, vaultID, opts); err != nil {
+        return 0, err
+    }
+    return 0, nil
 }
 
 func loadLambdaConfig() (*config.Config, error) {

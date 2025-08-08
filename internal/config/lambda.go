@@ -15,8 +15,9 @@ type LambdaConfig struct {
 	EnableProgress     bool          `json:"enable_progress"`
 	S3Bucket           string        `json:"s3_bucket"`
 	S3Prefix           string        `json:"s3_prefix"`
-	S3StatePrefix      string        `json:"s3_state_prefix"`
-	DownloadOnStartup  bool          `json:"download_on_startup"`
+    S3StatePrefix      string        `json:"s3_state_prefix"`
+    DownloadOnStartup  bool          `json:"download_on_startup"`
+    SecretName         string        `json:"secret_name"`
 }
 
 // LoadLambdaConfig loads configuration for Lambda environment
@@ -53,9 +54,13 @@ func LoadLambdaConfig() *LambdaConfig {
 		cfg.DownloadOnStartup = v == "true" || v == "1"
 	}
 	
-	cfg.S3Bucket = os.Getenv("S3_BUCKET")
-	cfg.S3Prefix = os.Getenv("S3_PREFIX")
-	cfg.S3StatePrefix = os.Getenv("S3_STATE_PREFIX")
+    cfg.S3Bucket = os.Getenv("S3_BUCKET")
+    cfg.S3Prefix = os.Getenv("S3_PREFIX")
+    cfg.S3StatePrefix = os.Getenv("S3_STATE_PREFIX")
+    // Either name or ARN is acceptable for Secrets Manager
+    if v := os.Getenv("OBSYNC_SECRET_NAME"); v != "" {
+        cfg.SecretName = v
+    }
 	
 	if cfg.S3StatePrefix == "" {
 		cfg.S3StatePrefix = "state/"

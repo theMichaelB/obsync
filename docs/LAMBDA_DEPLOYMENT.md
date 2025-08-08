@@ -274,6 +274,7 @@ aws logs describe-log-groups --log-group-name-prefix "/aws/lambda/obsync-sync"
 | `S3_PREFIX` | No | Vault storage prefix | `vaults/` |
 | `S3_STATE_PREFIX` | No | State storage prefix | `state/` |
 | `AWS_REGION` | No | AWS region | `us-east-1` |
+| `OBSYNC_SECRET_NAME` | No | Secrets Manager name/ARN of combined JSON secret (auth + vaults) | `arn:aws:secretsmanager:...:secret:obsync/combined-abc` |
 
 ### Lambda-Specific Configuration
 
@@ -310,17 +311,27 @@ aws lambda update-function-configuration \
   }'
 ```
 
-#### Option 2: AWS Secrets Manager
+#### Option 2: AWS Secrets Manager (Combined JSON)
 
 ```bash
-# Create secret
+# Create combined secret for account + vault passwords
 aws secretsmanager create-secret \
-  --name "obsync/credentials" \
+  --name "obsync/combined" \
   --secret-string '{
-    "email": "your@email.com",
-    "password": "your-password",
-    "totp_secret": "YOUR_BASE32_SECRET"
+    "auth": {
+      "email": "you@example.com",
+      "password": "your-password",
+      "totp_secret": "YOUR_BASE32_SECRET"
+    },
+    "vaults": {
+      "vault-abc123": {"password": "MyVaultPassword"}
+    }
   }'
+
+# Configure Lambda to read the secret (env only)
+aws lambda update-function-configuration \
+  --function-name obsync-sync \
+  --environment "Variables={OBSYNC_SECRET_NAME=arn:aws:secretsmanager:...:secret:obsync/combined-abc}"
 ```
 
 ## Deployment Options

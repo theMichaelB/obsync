@@ -63,3 +63,23 @@ Troubleshooting and advanced options: `docs/LAMBDA_DEPLOYMENT.md`.
       ```
       The CLI will pick this up automatically if present.
   - Lambda: retrieving vault passwords securely (e.g., from Secrets Manager) should be wired in the handler for your environment. Until that is in place, prefer running the CLI in `--s3` mode within a scheduled job (ECS/EKS/EC2/GitHub Actions) where you can pass `--password` from a secret.
+
+### Combined JSON Secret (recommended for Lambda)
+Store a single Secrets Manager secret with both account credentials and per‑vault passwords, then grant Lambda read access and set `OBSYNC_SECRET_NAME` to the secret ARN.
+
+Secret JSON schema:
+```json
+{
+  "auth": {
+    "email": "you@example.com",
+    "password": "account-password",
+    "totp_secret": "BASE32_TOTP"
+  },
+  "vaults": {
+    "vault-abc123": {"password": "MyVaultPassword"},
+    "vault-xyz789": {"password": "OtherPassword"}
+  }
+}
+```
+
+Terraform: set `secrets_manager_secret_arn` in `terraform.tfvars` to attach access and pass `OBSYNC_SECRET_NAME` to the function.
