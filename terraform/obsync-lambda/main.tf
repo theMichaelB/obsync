@@ -102,7 +102,6 @@ resource "aws_lambda_function" "obsync" {
       S3_STATE_PREFIX      = var.s3_state_prefix
       AWS_REGION           = var.aws_region
       DOWNLOAD_ON_STARTUP  = "true"
-      OBSYNC_SECRET_NAME   = var.secrets_manager_secret_arn != "" ? var.secrets_manager_secret_arn : null
     }
   }
 }
@@ -131,24 +130,4 @@ resource "aws_lambda_permission" "allow_cloudwatch" {
   source_arn    = aws_cloudwatch_event_rule.schedule[0].arn
 }
 
-# Optional: allow Lambda to read a specific Secrets Manager secret
-resource "aws_iam_policy" "secrets_access" {
-  count  = var.secrets_manager_secret_arn != "" ? 1 : 0
-  name   = "obsync-secrets-access"
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Effect   = "Allow",
-        Action   = ["secretsmanager:GetSecretValue"],
-        Resource = var.secrets_manager_secret_arn
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "secrets_attach" {
-  count      = var.secrets_manager_secret_arn != "" ? 1 : 0
-  role       = aws_iam_role.lambda_role.name
-  policy_arn = aws_iam_policy.secrets_access[0].arn
-}
+# Note: Secrets Manager access is already granted in the lambda_policy above

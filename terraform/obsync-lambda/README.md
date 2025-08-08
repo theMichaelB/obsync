@@ -25,5 +25,24 @@ Outputs include the Lambda function name and S3 bucket name.
 - `enable_schedule`: Creates hourly CloudWatch schedule when `true`
 - `schedule_expression`: Change schedule (default `rate(1 hour)`)
 
-## Credentials
-Provide credentials via AWS Secrets Manager. Set `secrets_manager_secret_arn` in terraform.tfvars to the ARN of a secret containing combined credentials in JSON format (see credentials.example.json).
+## Credentials (Required)
+
+### Step 1: Create your credentials file
+```bash
+cp ../../credentials.example.json credentials.json
+# Edit credentials.json with your Obsidian account and vault passwords
+```
+
+### Step 2: Create AWS Secrets Manager secret
+```bash
+aws secretsmanager create-secret \
+  --name obsync-credentials \
+  --secret-string file://credentials.json
+```
+
+### Step 3: Add the secret ARN to terraform.tfvars
+```hcl
+secrets_manager_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:obsync-credentials-abc123"
+```
+
+The secret must contain combined credentials in JSON format with both account credentials and vault-specific passwords. See `../../credentials.example.json` for the required format.

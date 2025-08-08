@@ -55,4 +55,9 @@ variable "s3_state_prefix" {
 variable "secrets_manager_secret_arn" {
   description = "ARN of Secrets Manager secret containing combined credentials JSON (required)"
   type        = string
+  
+  validation {
+    condition     = length(var.secrets_manager_secret_arn) > 0
+    error_message = "The secrets_manager_secret_arn must be provided. Create a secret with: aws secretsmanager create-secret --name obsync-credentials --secret-string file://credentials.json"
+  }
 }
