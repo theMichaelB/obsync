@@ -23,17 +23,16 @@ cp config.min.json config.json
 #   "auth.vault_credentials_file": "./vault_credentials.json"
 ```
 
-Optional vault password file (for encrypted vaults):
+Optional combined credentials file (for local/CI):
 ```bash
-# Create a vault credentials file at the path you set above
-# Supported formats (either works):
-# 1) Nested
-# {"vaults": {"<vault-id>": {"password": "MyVaultPassword"}}}
-# 2) Flat
-# {"<vault-id>": "MyVaultPassword"}
-
-# A starter example is provided at vault_credentials.example.json
-cp vault_credentials.example.json vault_credentials.json
+# Create a combined JSON with account + vault passwords
+# Example schema:
+# {
+#   "auth": {"email": "you@example.com", "password": "account-pass", "totp_secret": "BASE32"},
+#   "vaults": {"vault-abc123": {"password": "MyVaultPassword"}}
+# }
+# Reference it from config as:
+#   "auth.combined_credentials_file": "./combined.json"
 ```
 
 ### 3. Sync Your Vault
@@ -218,14 +217,7 @@ cp vault_credentials.example.json vault_credentials.json
 }
 ```
 
-Vault credentials file examples:
-```json
-{"vaults": {"vault-abc123": {"password": "MyVaultPassword"}}}
-```
-or
-```json
-{"vault-abc123": "MyVaultPassword"}
-```
+Tip: Legacy `auth.vault_credentials_file` is still supported, but the combined file is clearer and aligns with Lambda Secrets Manager usage.
 
 ### Environment Variables
 ```bash
