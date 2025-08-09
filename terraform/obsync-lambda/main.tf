@@ -86,6 +86,12 @@ resource "aws_iam_role_policy_attachment" "lambda_attach" {
   policy_arn = aws_iam_policy.lambda_policy.arn
 }
 
+# CloudWatch Log Group with 1-day retention
+resource "aws_cloudwatch_log_group" "lambda_logs" {
+  name              = "/aws/lambda/${var.function_name}"
+  retention_in_days = 1
+}
+
 resource "aws_lambda_function" "obsync" {
   filename         = var.lambda_zip_path
   function_name    = var.function_name
@@ -96,6 +102,8 @@ resource "aws_lambda_function" "obsync" {
   architectures    = ["arm64"]
   timeout          = var.timeout
   memory_size      = var.memory_size
+  
+  depends_on = [aws_cloudwatch_log_group.lambda_logs]
 
   environment {
     variables = {
