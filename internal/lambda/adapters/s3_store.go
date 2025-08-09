@@ -22,6 +22,7 @@ type S3Store struct {
 	client  *s3.Client
 	bucket  string
 	prefix  string
+	basePrefix string  // Original prefix before vault-specific path
 	logger  *events.Logger
 }
 
@@ -35,6 +36,7 @@ func NewS3Store(bucket, prefix string, logger *events.Logger) (*S3Store, error) 
 		client: s3.NewFromConfig(cfg),
 		bucket: bucket,
 		prefix: prefix,
+		basePrefix: prefix,
 		logger: logger.WithField("component", "s3_store"),
 	}, nil
 }
@@ -61,10 +63,6 @@ func (s *S3Store) Write(filePath string, data []byte, mode os.FileMode) error {
 		return fmt.Errorf("s3 put object: %w", err)
 	}
 	
-	s.logger.WithFields(map[string]interface{}{
-		"key":  key,
-		"size": len(data),
-	}).Debug("Wrote file to S3")
 	
 	return nil
 }
@@ -221,23 +219,18 @@ func (s *S3Store) SetModTime(filePath string, modTime time.Time) error {
 
 // SetBasePath updates the S3 prefix for vault-specific storage
 func (s *S3Store) SetBasePath(basePath string) error {
-	// Extract vault name from the path for S3 prefix
-	// basePath format: /tmp/vault-name or ./vault-name
+	// Extract vault name from the path
+	// basePath could be just the vault name or a path like /tmp/vault-name
 	vaultName := filepath.Base(basePath)
 	
-	// Combine original prefix with vault name
-	originalPrefix := strings.TrimSuffix(s.prefix, "/")
-	if originalPrefix != "" {
-		s.prefix = originalPrefix + "/" + vaultName + "/"
+	// Use the original base prefix and append vault name
+	basePrefix := strings.TrimSuffix(s.basePrefix, "/")
+	if basePrefix != "" {
+		s.prefix = basePrefix + "/" + vaultName + "/"
 	} else {
 		s.prefix = vaultName + "/"
 	}
 	
-	s.logger.WithFields(map[string]interface{}{
-		"base_path": basePath,
-		"vault_name": vaultName,
-		"s3_prefix": s.prefix,
-	}).Debug("Updated S3 storage prefix for vault")
 	
 	return nil
 }

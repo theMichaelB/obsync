@@ -126,16 +126,13 @@ func (c *WSClient) SendInit(msg models.InitMessage) error {
 // SendMessage sends a generic WebSocket message.
 func (c *WSClient) SendMessage(msg interface{}) error {
 	c.mu.Lock()
-	conn := c.conn
-	c.mu.Unlock()
+	defer c.mu.Unlock()
 
-	if conn == nil {
+	if c.conn == nil {
 		return fmt.Errorf("not connected")
 	}
 
-	c.logger.WithField("message", msg).Debug("Sending WebSocket message")
-
-	if err := conn.WriteJSON(msg); err != nil {
+	if err := c.conn.WriteJSON(msg); err != nil {
 		return fmt.Errorf("send message: %w", err)
 	}
 
@@ -271,7 +268,6 @@ func (c *WSClient) readLoop() {
 		// Set read deadline for pong
 		_ = conn.SetReadDeadline(time.Now().Add(c.pongTimeout + c.pingInterval))
 		conn.SetPongHandler(func(string) error {
-			c.logger.Debug("Received pong")
 			_ = conn.SetReadDeadline(time.Now().Add(c.pongTimeout + c.pingInterval))
 			return nil
 		})
@@ -300,7 +296,6 @@ func (c *WSClient) readLoop() {
 				Timestamp:  time.Now(),
 			}
 			
-			c.logger.WithField("size", len(data)).Debug("Received binary WebSocket message")
 		} else {
 			// Text message - parse as JSON
 			var rawMsg map[string]interface{}
@@ -323,10 +318,6 @@ func (c *WSClient) readLoop() {
 			}
 		}
 
-		c.logger.WithFields(map[string]interface{}{
-			"type": msg.Type,
-			"uid":  msg.UID,
-		}).Debug("Processed message")
 
 		select {
 		case c.messages <- msg:
@@ -390,9 +381,7 @@ func (c *WSClient) pingLoop() {
 				return
 			}
 
-			c.logger.Debug("Sending ping")
 			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				c.logger.WithError(err).Error("Ping failed")
 				return
 			}
 

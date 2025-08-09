@@ -61,3 +61,38 @@ variable "secrets_manager_secret_arn" {
     error_message = "The secrets_manager_secret_arn must be provided. Create a secret with: aws secretsmanager create-secret --name obsync-credentials --secret-string file://credentials.json"
   }
 }
+
+variable "enable_debug" {
+  description = "Enable debug logging"
+  type        = bool
+  default     = false
+}
+
+variable "save_websocket_trace" {
+  description = "Save WebSocket trace data to S3 for debugging"
+  type        = bool
+  default     = false
+}
+
+variable "log_level" {
+  description = "Logging level (debug, info, warn, error)"
+  type        = string
+  default     = "info"
+  
+  validation {
+    condition     = contains(["debug", "info", "warn", "error"], var.log_level)
+    error_message = "log_level must be one of: debug, info, warn, error"
+  }
+}
+
+variable "max_concurrent" {
+  description = "Maximum concurrent file operations (default 50 for Lambda)"
+  type        = number
+  default     = 50
+}
+
+variable "chunk_size_mb" {
+  description = "File chunk size in MB for downloads (default 10)"
+  type        = number
+  default     = 10
+}

@@ -2,8 +2,10 @@ package handler
 
 import (
     "context"
+    "encoding/json"
     "fmt"
     "os"
+    "strconv"
     "time"
     
     "github.com/TheMichaelB/obsync/internal/client"
@@ -49,8 +51,12 @@ func NewHandler() (*Handler, error) {
 	}
 	
 	// Create logger that writes to CloudWatch
+	logLevel := os.Getenv("LOG_LEVEL")
+	if logLevel == "" {
+		logLevel = "info"
+	}
 	logCfg := &config.LogConfig{
-		Level:  "info",
+		Level:  logLevel,
 		Format: "json",
 	}
 	logger, err := events.NewLogger(logCfg)
@@ -71,13 +77,17 @@ func NewHandler() (*Handler, error) {
 
     // Load combined credentials from secret if configured
     if v := os.Getenv("OBSYNC_SECRET_NAME"); v != "" {
+        logger.WithField("secret_name", v).Info("Loading credentials from Secrets Manager")
         combinedCreds, err := creds.LoadFromSecret(context.Background(), v)
         if err != nil {
-            logger.WithError(err).Warn("Failed to load combined secret; continuing without")
-        } else {
-            h.creds = combinedCreds
-            lambdaClient.SetCredentials(combinedCreds)
+            logger.WithError(err).Error("Failed to load combined secret")
+            return nil, fmt.Errorf("load credentials from secret: %w", err)
         }
+        h.creds = combinedCreds
+        lambdaClient.SetCredentials(combinedCreds)
+        logger.WithField("vault_count", len(combinedCreds.Vaults)).Info("Successfully loaded combined credentials")
+    } else {
+        logger.Warn("OBSYNC_SECRET_NAME not set, no credentials loaded")
     }
 
     return h, nil
@@ -108,6 +118,27 @@ func (h *Handler) handleSync(ctx context.Context, event Event, start time.Time) 
 	var totalFiles int
 	var errors []string
 	
+	// Authenticate once at the beginning
+	if h.creds != nil {
+		h.logger.Info("Authenticating with Obsidian API")
+		
+		if err := h.client.Auth.Login(ctx, h.creds.Auth.Email, h.creds.Auth.Password, h.creds.Auth.TOTPSecret); err != nil {
+			h.logger.WithError(err).Error("Authentication failed")
+			return Response{
+				Success: false,
+				Message: "Failed to authenticate",
+				Errors:  []string{fmt.Sprintf("Auth error: %v", err)},
+			}, nil
+		}
+		h.logger.Info("Authentication successful")
+	} else {
+		return Response{
+			Success: false,
+			Message: "No credentials available",
+			Errors:  []string{"Combined credentials not loaded"},
+		}, nil
+	}
+	
 	if event.VaultID != "" {
 		// Sync single vault
 		count, err := h.syncVault(ctx, event.VaultID, event.SyncType == "complete")
@@ -119,14 +150,17 @@ func (h *Handler) handleSync(ctx context.Context, event Event, start time.Time) 
 		}
 	} else {
 		// Sync all vaults
+		h.logger.Info("Listing vaults")
 		vaults, err := h.client.Vaults.ListVaults(ctx)
 		if err != nil {
+			h.logger.WithError(err).Error("Failed to list vaults")
 			return Response{
 				Success: false,
 				Message: "Failed to list vaults",
-				Errors:  []string{err.Error()},
+				Errors:  []string{fmt.Sprintf("List vaults error: %v", err)},
 			}, nil
 		}
+		h.logger.WithField("vault_count", len(vaults)).Info("Found vaults")
 		
 		for _, vault := range vaults {
 			count, err := h.syncVault(ctx, vault.ID, event.SyncType == "complete")
@@ -159,17 +193,31 @@ func (h *Handler) handleSync(ctx context.Context, event Event, start time.Time) 
 }
 
 func (h *Handler) syncVault(ctx context.Context, vaultID string, complete bool) (int, error) {
-    h.logger.WithField("vault_id", vaultID).Info("Starting vault sync")
 
-    // Ensure we have combined credentials
-    if h.creds == nil {
-        return 0, fmt.Errorf("missing combined credentials")
+    // Get vault info to get the name
+    vault, err := h.client.Vaults.GetVault(ctx, vaultID)
+    if err != nil {
+        return 0, fmt.Errorf("get vault info: %w", err)
     }
-
-    // Login using combined credentials
-    if err := h.client.Auth.Login(ctx, h.creds.Auth.Email, h.creds.Auth.Password, h.creds.Auth.TOTPSecret); err != nil {
-        return 0, fmt.Errorf("login failed: %w", err)
+    
+    // Check if we have credentials for this vault
+    if h.creds != nil && h.creds.Vaults != nil {
+        vaultsMap := make(map[string]interface{})
+        if err := json.Unmarshal(h.creds.Vaults, &vaultsMap); err == nil {
+            if _, ok := vaultsMap[vault.Name]; !ok {
+                h.logger.WithField("vault", vault.Name).Warn("Skipping vault - no credentials found")
+                return 0, fmt.Errorf("no credentials found for vault %s", vault.Name)
+            }
+        }
     }
+    
+    // Set storage base path with vault name for S3 organization
+    // This will create structure like: vaults/VaultName/...
+    if err := h.client.SetStorageBase(vault.Name); err != nil {
+        h.logger.WithError(err).Warn("Failed to set storage base path")
+    }
+    
+    h.logger.WithField("vault", vault.Name).Info("Starting vault sync")
 
     // Set combined credentials for sync (includes vault-specific passwords)
     h.client.Sync.SetCombinedCredentials(h.creds)
@@ -190,6 +238,24 @@ func loadLambdaConfig() (*config.Config, error) {
 	cfg.Storage.StateDir = "/tmp/obsync/state" 
 	cfg.Storage.TempDir = "/tmp/obsync/temp"
 	cfg.Storage.MaxFileSize = 400 * 1024 * 1024 // Leave headroom in /tmp
+	
+	// Optimize for Lambda's high bandwidth (configurable via env)
+	maxConcurrent := 50 // High default for Lambda's excellent network
+	if v := os.Getenv("OBSYNC_MAX_CONCURRENT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			maxConcurrent = n
+		}
+	}
+	cfg.Sync.MaxConcurrent = maxConcurrent
+	
+	// Configurable chunk size
+	chunkSize := 10 * 1024 * 1024 // Default 10MB for faster downloads
+	if v := os.Getenv("OBSYNC_CHUNK_SIZE_MB"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			chunkSize = n * 1024 * 1024
+		}
+	}
+	cfg.Sync.ChunkSize = chunkSize
 	
 	return cfg, nil
 }

@@ -21,6 +21,7 @@ type Transport interface {
 	SendMessage(msg interface{}) error
 	ReceiveBinaryMessage(ctx context.Context, timeout time.Duration) ([]byte, error)
 	ReceiveJSONMessage(ctx context.Context, timeout time.Duration) (map[string]interface{}, error)
+	CloseWebSocket() error
 
 	// Authentication
 	SetToken(token string)
@@ -104,6 +105,14 @@ func (t *DefaultTransport) ReceiveJSONMessage(ctx context.Context, timeout time.
 		return nil, fmt.Errorf("websocket not connected")
 	}
 	return t.wsClient.ReceiveJSONMessage(ctx, timeout)
+}
+
+// CloseWebSocket closes the WebSocket connection if open.
+func (t *DefaultTransport) CloseWebSocket() error {
+	if t.wsClient != nil {
+		return t.wsClient.Close()
+	}
+	return nil
 }
 
 // SetToken sets the auth token.

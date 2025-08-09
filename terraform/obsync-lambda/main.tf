@@ -38,7 +38,10 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "obsync" {
 data "aws_iam_policy_document" "trust" {
   statement {
     actions = ["sts:AssumeRole"]
-    principals { type = "Service" identifiers = ["lambda.amazonaws.com"] }
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
   }
 }
 
@@ -96,12 +99,18 @@ resource "aws_lambda_function" "obsync" {
 
   environment {
     variables = {
-      OBSYNC_SECRET_NAME   = var.secrets_manager_secret_arn
-      S3_BUCKET            = aws_s3_bucket.obsync.id
-      S3_PREFIX            = var.s3_prefix
-      S3_STATE_PREFIX      = var.s3_state_prefix
-      AWS_REGION           = var.aws_region
-      DOWNLOAD_ON_STARTUP  = "true"
+      OBSYNC_SECRET_NAME      = var.secrets_manager_secret_arn
+      S3_BUCKET               = aws_s3_bucket.obsync.id
+      S3_PREFIX               = var.s3_prefix
+      S3_STATE_PREFIX         = var.s3_state_prefix
+      DOWNLOAD_ON_STARTUP     = "true"
+      LOG_LEVEL               = var.log_level
+      OBSYNC_DEBUG            = var.enable_debug ? "true" : "false"
+      SAVE_WEBSOCKET_TRACE    = var.save_websocket_trace ? "true" : "false"
+      WEBSOCKET_TRACE_BUCKET  = var.save_websocket_trace ? aws_s3_bucket.obsync.id : ""
+      WEBSOCKET_TRACE_PREFIX  = var.save_websocket_trace ? "debug/websocket-traces/" : ""
+      OBSYNC_MAX_CONCURRENT   = tostring(var.max_concurrent)
+      OBSYNC_CHUNK_SIZE_MB    = tostring(var.chunk_size_mb)
     }
   }
 }
@@ -118,7 +127,7 @@ resource "aws_cloudwatch_event_target" "lambda" {
   rule      = aws_cloudwatch_event_rule.schedule[0].name
   target_id = "obsync-target"
   arn       = aws_lambda_function.obsync.arn
-  input     = jsonencode({ action = "sync_all" })
+  input     = jsonencode({ action = "sync", sync_type = "incremental" })
 }
 
 resource "aws_lambda_permission" "allow_cloudwatch" {

@@ -1,10 +1,8 @@
 package client
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
-	"time"
 	
 	"github.com/TheMichaelB/obsync/internal/config"
 	"github.com/TheMichaelB/obsync/internal/crypto"
@@ -18,7 +16,6 @@ import (
 
 // NewLambdaClient creates a client optimized for Lambda or S3 storage
 func NewLambdaClient(cfg *config.Config, logger *events.Logger) (*Client, error) {
-	logger.Info("Initializing S3 storage client")
 	
 	// Create Lambda-specific components
 	lambdaCfg := config.LoadLambdaConfig()
@@ -73,15 +70,7 @@ func NewLambdaClient(cfg *config.Config, logger *events.Logger) (*Client, error)
 		MaxConcurrent: cfg.Sync.MaxConcurrent,
 	}
 	
-	// Download states on startup if enabled (mainly for Lambda optimization)
-	if lambdaCfg.DownloadOnStartup && config.IsLambdaEnvironment() {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		defer cancel()
-		
-		if err := s3StateStore.DownloadStatesOnStartup(ctx); err != nil {
-			logger.WithError(err).Warn("Failed to download states on startup, continuing without cache")
-		}
-	}
+	// Skip downloading states on startup - let it load on demand
 	
 	// Create sync service
 	syncService := sync.NewService(

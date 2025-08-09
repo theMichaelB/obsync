@@ -294,14 +294,12 @@ func (s *S3StateStore) Close() error {
 
 // DownloadStatesOnStartup downloads all states at startup for faster access
 func (s *S3StateStore) DownloadStatesOnStartup(ctx context.Context) error {
-	s.logger.Info("Downloading states on startup for local caching")
 
 	vaultIDs, err := s.List()
 	if err != nil {
 		return fmt.Errorf("list vault states: %w", err)
 	}
 
-	s.logger.WithField("vault_count", len(vaultIDs)).Info("Found vault states to cache")
 
 	// Download states concurrently but with limited concurrency
 	sem := make(chan struct{}, 5) // Max 5 concurrent downloads
@@ -334,6 +332,5 @@ func (s *S3StateStore) DownloadStatesOnStartup(ctx context.Context) error {
 		return fmt.Errorf("failed to download %d states: %v", len(errors), errors[0])
 	}
 
-	s.logger.WithField("cached_states", len(s.localCache)).Info("Successfully cached all states")
 	return nil
 }

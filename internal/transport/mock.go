@@ -132,8 +132,8 @@ func (m *MockTransport) SetToken(token string) {
 	m.token = token
 }
 
-// Close mocks connection closing.
-func (m *MockTransport) Close() error {
+// CloseWebSocket mocks WebSocket closing.
+func (m *MockTransport) CloseWebSocket() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -145,6 +145,11 @@ func (m *MockTransport) Close() error {
 	}
 
 	return nil
+}
+
+// Close mocks connection closing.
+func (m *MockTransport) Close() error {
+	return m.CloseWebSocket()
 }
 
 // streamMessages sends mock messages.

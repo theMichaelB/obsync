@@ -2,10 +2,23 @@ package main
 
 import (
 	"context"
+	"log"
 	
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/TheMichaelB/obsync/internal/lambda/handler"
 )
+
+// Global handler instance for reuse across warm starts
+var h *handler.Handler
+
+func init() {
+	// Initialize handler once during cold start
+	var err error
+	h, err = handler.NewHandler()
+	if err != nil {
+		log.Fatalf("Failed to initialize handler: %v", err)
+	}
+}
 
 // Event represents the Lambda input event
 type Event struct {
@@ -30,14 +43,6 @@ type Response struct {
 }
 
 func handleRequest(ctx context.Context, event Event) (Response, error) {
-	h, err := handler.NewHandler()
-	if err != nil {
-		return Response{
-			Success: false,
-			Message: "Failed to initialize handler",
-			Errors:  []string{err.Error()},
-		}, nil
-	}
 	
 	// Convert event types
 	handlerEvent := handler.Event{

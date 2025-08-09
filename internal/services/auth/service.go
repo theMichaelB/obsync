@@ -10,6 +10,7 @@ import (
 	"github.com/TheMichaelB/obsync/internal/creds"
 	"github.com/TheMichaelB/obsync/internal/events"
 	"github.com/TheMichaelB/obsync/internal/models"
+	"github.com/TheMichaelB/obsync/internal/services/totp"
 	"github.com/TheMichaelB/obsync/internal/transport"
 )
 
@@ -41,7 +42,7 @@ func (s *Service) SetCredentials(c *creds.Combined) {
 }
 
 // Login authenticates using combined credentials or provided parameters.
-func (s *Service) Login(ctx context.Context, email, password, totp string) error {
+func (s *Service) Login(ctx context.Context, email, password, totpSecret string) error {
 	// Use combined credentials if available and parameters not provided
 	if s.creds != nil {
 		if email == "" {
@@ -50,8 +51,8 @@ func (s *Service) Login(ctx context.Context, email, password, totp string) error
 		if password == "" {
 			password = s.creds.Auth.Password
 		}
-		if totp == "" {
-			totp = s.creds.Auth.TOTPSecret
+		if totpSecret == "" {
+			totpSecret = s.creds.Auth.TOTPSecret
 		}
 	}
 	
@@ -60,12 +61,24 @@ func (s *Service) Login(ctx context.Context, email, password, totp string) error
 		return fmt.Errorf("email and password required")
 	}
 	
-	s.logger.WithField("email", email).Info("Logging in")
+	// Generate TOTP code from secret if provided
+	var totpCode string
+	if totpSecret != "" {
+		totpService := totp.NewService()
+		code, err := totpService.GenerateCode(totpSecret)
+		if err != nil {
+			return fmt.Errorf("generate TOTP code: %w", err)
+		}
+		totpCode = code
+		s.logger.WithField("email", email).Info("Logging in with TOTP")
+	} else {
+		s.logger.WithField("email", email).Info("Logging in")
+	}
 
 	req := models.AuthRequest{
 		Email:    email,
 		Password: password,
-		TOTP:     totp,
+		TOTP:     totpCode,
 	}
 
 	resp, err := s.transport.PostJSON(ctx, "/user/signin", req)

@@ -189,4 +189,11 @@ func (c *Client) GetCredentials() *creds.Combined {
 // SetCredentials sets the combined credentials.
 func (c *Client) SetCredentials(combinedCreds *creds.Combined) {
 	c.creds = combinedCreds
+	// Propagate to services that need credentials
+	if c.Auth != nil {
+		c.Auth.SetCredentials(combinedCreds)
+	}
+	if c.Vaults != nil {
+		c.Vaults.SetCredentials(combinedCreds)
+	}
 }

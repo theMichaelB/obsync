@@ -22,10 +22,15 @@ type Combined struct {
 
 // ParseCombined parses JSON bytes into Combined.
 func ParseCombined(data []byte) (*Combined, error) {
+    if len(data) == 0 {
+        return nil, fmt.Errorf("empty data")
+    }
+    
     var c Combined
     if err := json.Unmarshal(data, &c); err != nil {
-        return nil, err
+        return nil, fmt.Errorf("json unmarshal failed: %w", err)
     }
+    
     return &c, nil
 }
 
@@ -52,7 +57,21 @@ func LoadFromSecret(ctx context.Context, secretID string) (*Combined, error) {
     if out.SecretString == nil {
         return nil, fmt.Errorf("secret has no string payload")
     }
-    return ParseCombined([]byte(*out.SecretString))
+    
+    secretData := *out.SecretString
+    
+    // Parse the secret
+    parsed, err := ParseCombined([]byte(secretData))
+    if err != nil {
+        return nil, fmt.Errorf("parse combined credentials: %w", err)
+    }
+    
+    // Validate parsed data
+    if parsed.Auth.Email == "" {
+        return nil, fmt.Errorf("parsed credentials missing email")
+    }
+    
+    return parsed, nil
 }
 
 // VaultPassword returns the vault password for an ID (supports nested or flat maps).

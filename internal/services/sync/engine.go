@@ -201,10 +201,6 @@ func (e *Engine) Sync(ctx context.Context, vaultID, vaultHost string, vaultKey [
 	e.progress.Store(progress)
 	e.pullQueue = make([]PullRequest, 0) // Clear any previous pull queue
 
-	e.logger.WithFields(map[string]interface{}{
-		"vault_id": vaultID,
-		"initial":  initial,
-	}).Info("Starting sync")
 
 	// Emit start event
 	e.emitEvent(Event{
@@ -246,27 +242,29 @@ func (e *Engine) Sync(ctx context.Context, vaultID, vaultHost string, vaultKey [
 	if err != nil {
 		return e.handleError(fmt.Errorf("connect websocket: %w", err))
 	}
+	
+	// Ensure WebSocket is closed when we're done
+	defer func() {
+		if err := e.transport.CloseWebSocket(); err != nil {
+			e.logger.WithError(err).Warn("Failed to close WebSocket connection")
+		}
+	}()
 
 	// Process messages
 	// We'll decrypt paths directly using the crypto provider
 
-	messageCount := 0
-	for msg := range msgChan {
-		messageCount++
-		e.logger.WithFields(map[string]interface{}{
-			"msg_type": msg.Type,
-			"msg_uid":  msg.UID,
-			"count":    messageCount,
-		}).Debug("Processing message")
-		
+messageLoop:
+	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+			
 		case completion := <-e.pullResponses:
 			// Check for completion signal from async pull processing
 			if completion.Type == "complete" {
-				e.logger.Info("Received pull phase completion signal")
-				break
+				// Pull phase complete
+				e.logger.Info("Received pull completion signal, ending sync")
+				break messageLoop
 			}
 			// Put non-completion responses back for pull handlers to process
 			select {
@@ -274,27 +272,31 @@ func (e *Engine) Sync(ctx context.Context, vaultID, vaultHost string, vaultKey [
 			default:
 				e.logger.Warn("Dropped pull response during message processing")
 			}
-		default:
-		}
-
-		if err := e.processMessage(ctx, msg, vaultKey, syncState); err != nil {
-			// Check if this is a successful completion signal
-			if errors.Is(err, models.ErrSyncComplete) {
-				e.logger.Info("Sync completed successfully")
-				break
+			
+		case msg, ok := <-msgChan:
+			if !ok {
+				// Channel closed
+				e.logger.Info("WebSocket message channel closed")
+				break messageLoop
 			}
 			
-			e.logger.WithError(err).WithField("msg_type", msg.Type).Error("Failed to process message")
-			progress.Errors = append(progress.Errors, err)
+			if err := e.processMessage(ctx, msg, vaultKey, syncState); err != nil {
+				// Check if this is a successful completion signal
+				if errors.Is(err, models.ErrSyncComplete) {
+					// Sync completed successfully
+					break messageLoop
+				}
+				
+				e.logger.WithError(err).WithField("msg_type", msg.Type).Error("Failed to process message")
+				progress.Errors = append(progress.Errors, err)
 
-			// Determine if error is fatal
-			if e.isFatalError(err) {
-				return e.handleError(err)
+				// Determine if error is fatal
+				if e.isFatalError(err) {
+					return e.handleError(err)
+				}
 			}
 		}
 	}
-	
-	e.logger.WithField("total_messages", messageCount).Debug("Finished processing messages")
 
 	// Save final state
 	finalizeProgress := *progress
@@ -318,7 +320,7 @@ func (e *Engine) Sync(ctx context.Context, vaultID, vaultHost string, vaultKey [
 		"duration": time.Since(completedProgress.StartTime),
 		"files":    completedProgress.ProcessedFiles,
 		"errors":   len(completedProgress.Errors),
-	}).Info("Sync completed")
+	}).Debug("Sync completed")
 
 	return nil
 }
@@ -329,7 +331,7 @@ func (e *Engine) Cancel() {
 	defer e.mu.Unlock()
 
 	if e.cancelFn != nil {
-		e.logger.Info("Cancelling sync")
+		// Cancelling sync
 		e.cancelFn()
 	}
 }
@@ -407,16 +409,11 @@ func (e *Engine) handleFileMessage(
 		progress = &updatedProgress
 	}
 
-	e.logger.WithFields(map[string]interface{}{
-		"uid":  fileMsg.UID,
-		"path": plainPath,
-		"size": fileMsg.Size,
-	}).Debug("Processing file")
 
 	// Check if file needs update
 	existingHash, exists := syncState.Files[plainPath]
 	if exists && existingHash == fileMsg.Hash {
-		e.logger.Debug("File unchanged, skipping")
+		// File unchanged, skipping
 		e.emitEvent(Event{
 			Type:      EventFileSkipped,
 			Timestamp: time.Now(),
@@ -529,7 +526,7 @@ func (e *Engine) handleInitResponse(msg models.WSMessage) error {
 		"total_files":    resp.TotalFiles,
 		"start_version":  resp.StartVersion,
 		"latest_version": resp.LatestVersion,
-	}).Info("Sync initialized")
+	}).Debug("Sync initialized")
 
 	return nil
 }
@@ -562,7 +559,7 @@ func (e *Engine) handleDeleteMessage(msg models.WSMessage, vaultKey []byte, sync
 		return fmt.Errorf("decrypt delete path: %w", err)
 	}
 
-	e.logger.WithField("path", plainPath).Info("Deleting file")
+	// Deleting file
 
 	// Delete from storage
 	if err := e.storage.Delete(plainPath); err != nil {
@@ -589,7 +586,7 @@ func (e *Engine) handleDoneMessage(msg models.WSMessage, syncState *models.SyncS
 		"final_version": doneMsg.FinalVersion,
 		"total_synced":  doneMsg.TotalSynced,
 		"duration":      doneMsg.Duration,
-	}).Info("Sync stream completed")
+	}).Debug("Sync stream completed")
 
 	return nil
 }
@@ -672,7 +669,7 @@ func (e *Engine) handlePushMessage(ctx context.Context, msg models.WSMessage, va
 		"size":           fileSize,
 		"deleted":        deleted,
 		"folder":         isFolder,
-	}).Info("Decrypted file path")
+	}).Debug("Decrypted file path")
 
 	// Update sync state with highest UID seen
 	if uid > syncState.Version {
@@ -705,14 +702,14 @@ func (e *Engine) handleReadyMessage(ctx context.Context, msg models.WSMessage, v
 	e.logger.WithFields(map[string]interface{}{
 		"final_version": finalVersion,
 		"current_version": syncState.Version,
-	}).Info("Received ready message - sync complete")
+	}).Debug("Received ready message - sync complete")
 
 	// Update sync state to final version
 	syncState.Version = finalVersion
 
 	// Transition to pull phase if there are files to download
 	if len(e.pullQueue) > 0 {
-		e.logger.WithField("queue_size", len(e.pullQueue)).Info("Starting pull request phase")
+		// Starting pull request phase
 		
 		// Set engine state to pull mode
 		e.syncPhase = "pull"
@@ -808,7 +805,7 @@ func getBool(m map[string]interface{}, key string) bool {
 
 // File operation handlers
 func (e *Engine) handleFileDelete(path string, syncState *models.SyncState) error {
-	e.logger.WithField("path", path).Info("Deleting file")
+	// Deleting file
 	
 	// Delete from filesystem
 	if err := e.storage.Delete(path); err != nil {
@@ -819,19 +816,19 @@ func (e *Engine) handleFileDelete(path string, syncState *models.SyncState) erro
 	// Remove from sync state
 	delete(syncState.Files, path)
 	
-	e.logger.WithField("path", path).Info("File deleted successfully")
+	// File deleted successfully
 	return nil
 }
 
 func (e *Engine) handleFolderCreate(path string) error {
-	e.logger.WithField("path", path).Info("Creating folder")
+	// Creating folder
 	
 	// Create directory
 	if err := e.storage.EnsureDir(path); err != nil {
 		return fmt.Errorf("create directory %s: %w", path, err)
 	}
 	
-	e.logger.WithField("path", path).Info("Folder created successfully")
+	// Folder created successfully
 	return nil
 }
 
@@ -846,7 +843,7 @@ func (e *Engine) handleFileSync(ctx context.Context, path, hash string, size int
 		"hash":     hashPreview,
 		"size":     size,
 		"chunk_id": chunkID,
-	}).Info("Syncing file")
+	}).Debug("Syncing file")
 	
 	// Check if file already exists with same hash
 	if existingHash, exists := syncState.Files[path]; exists && existingHash == hash {
@@ -860,7 +857,7 @@ func (e *Engine) handleFileSync(ctx context.Context, path, hash string, size int
 			return fmt.Errorf("write empty file %s: %w", path, err)
 		}
 		syncState.Files[path] = hash
-		e.logger.WithField("path", path).Info("Empty file synced successfully")
+		// Empty file synced successfully
 		return nil
 	}
 	
@@ -892,7 +889,7 @@ func (e *Engine) handleFileSync(ctx context.Context, path, hash string, size int
 		}
 	} else {
 		// No chunk ID provided - queue for pull request after all push messages are processed
-		e.logger.WithField("path", path).Info("Queueing file for pull request")
+		// Queueing file for pull request
 		
 		e.pullQueue = append(e.pullQueue, PullRequest{
 			Path: path,
@@ -904,7 +901,7 @@ func (e *Engine) handleFileSync(ctx context.Context, path, hash string, size int
 		// Update state with file hash (we'll download the content later)
 		syncState.Files[path] = hash
 		
-		e.logger.WithField("path", path).Info("File queued for pull request")
+		// File queued for pull request
 		return nil
 	}
 	
@@ -925,7 +922,7 @@ func (e *Engine) handleFileSync(ctx context.Context, path, hash string, size int
 		"path":            path,
 		"decrypted_size":  len(plainData),
 		"is_binary":       models.IsBinaryFile(path, plainData),
-	}).Info("File downloaded and decrypted successfully")
+	}).Debug("File downloaded and decrypted successfully")
 	
 	// Update state with file hash
 	syncState.Files[path] = hash
@@ -1110,11 +1107,6 @@ func (e *Engine) processPullQueue(ctx context.Context, vaultKey []byte, syncStat
 			continue
 		}
 		
-		e.logger.WithFields(map[string]interface{}{
-			"path":            req.Path,
-			"decrypted_size":  len(plainData),
-			"is_binary":       models.IsBinaryFile(req.Path, plainData),
-		}).Info("File downloaded and written successfully")
 	}
 	
 	// Clear the pull queue
@@ -1123,20 +1115,82 @@ func (e *Engine) processPullQueue(ctx context.Context, vaultKey []byte, syncStat
 	return nil
 }
 
-// processPullQueueAsync processes the pull queue asynchronously.
+// processPullQueueAsync processes the pull queue with separate download and upload processes.
 func (e *Engine) processPullQueueAsync(ctx context.Context, vaultKey []byte, syncState *models.SyncState) {
-	e.logger.Info("Starting async pull queue processing")
+	e.logger.Info("Starting async pull queue processing with producer-consumer pattern")
 	
 	// Ensure completion signal is always sent, even on early exit
 	defer func() {
 		e.completePullPhase()
 	}()
 	
+	// Create channels for producer-consumer pattern
+	type downloadedFile struct {
+		path string
+		hash string
+		data []byte
+		mode os.FileMode
+	}
+	
+	// Buffer size for downloaded files waiting to be uploaded
+	downloadQueue := make(chan downloadedFile, 100)
+	uploadDone := make(chan error, 1)
+	
+	// Start upload workers (consumers) - parallel S3 uploads
+	numUploadWorkers := e.maxConcurrent
+	if numUploadWorkers <= 0 {
+		numUploadWorkers = 50
+	}
+	
+	var uploadWg sync.WaitGroup
+	uploadErrors := make(chan error, len(e.pullQueue))
+	
+	// Start upload workers
+	for w := 0; w < numUploadWorkers; w++ {
+		uploadWg.Add(1)
+		go func(workerID int) {
+			defer uploadWg.Done()
+			for file := range downloadQueue {
+				// Write to S3 storage
+				if err := e.storage.Write(file.path, file.data, file.mode); err != nil {
+					e.logger.WithError(err).WithFields(map[string]interface{}{
+						"path": file.path,
+						"worker": workerID,
+					}).Error("Failed to write file to S3")
+					uploadErrors <- err
+					continue
+				}
+				
+				// Update state with file hash
+				e.mu.Lock()
+				syncState.Files[file.path] = file.hash
+				e.mu.Unlock()
+				
+				e.logger.WithFields(map[string]interface{}{
+					"path": file.path,
+					"size": len(file.data),
+					"worker": workerID,
+				}).Debug("Uploaded file to S3")
+			}
+		}(w)
+	}
+	
+	// Monitor upload completion
+	go func() {
+		uploadWg.Wait()
+		close(uploadErrors)
+		uploadDone <- nil
+	}()
+	
+	// Download process (producer) - sequential WebSocket downloads
+	downloadCount := 0
 	for i, req := range e.pullQueue {
-		// Check for context cancellation before processing each file
+		// Check for context cancellation
 		select {
 		case <-ctx.Done():
-			e.logger.WithError(ctx.Err()).Warn("Pull queue processing cancelled")
+			e.logger.WithError(ctx.Err()).Warn("Download process cancelled")
+			close(downloadQueue)
+			<-uploadDone
 			return
 		default:
 		}
@@ -1145,50 +1199,74 @@ func (e *Engine) processPullQueueAsync(ctx context.Context, vaultKey []byte, syn
 			"progress": fmt.Sprintf("%d/%d", i+1, len(e.pullQueue)),
 			"path":     req.Path,
 			"size":     req.Size,
-		}).Info("Processing pull request")
+		}).Info("Downloading file")
 		
-		// Download file content  
+		// Download file content from WebSocket
 		plainData, err := e.pullFileContent(ctx, req.UID, vaultKey)
 		if err != nil {
-			e.logger.WithError(err).WithField("path", req.Path).Error("Failed to pull file content")
-			// Check if error was due to context cancellation
+			e.logger.WithError(err).WithField("path", req.Path).Error("Failed to download file")
 			if ctx.Err() != nil {
-				e.logger.WithError(ctx.Err()).Warn("Pull file content cancelled")
+				close(downloadQueue)
+				<-uploadDone
 				return
 			}
-			continue // Continue with other files
-		}
-		
-		// Skip hash verification - rely on AES-GCM authentication tag for integrity
-		
-		// Detect file mode (binary vs text)
-		mode := os.FileMode(0644)
-		if models.IsBinaryFile(req.Path, plainData) {
-			mode = 0644 // Keep same mode for binary files
-		}
-		
-		// Write to storage
-		if err := e.storage.Write(req.Path, plainData, mode); err != nil {
-			e.logger.WithError(err).WithField("path", req.Path).Error("Failed to write file")
 			continue
 		}
 		
-		// Update state with file hash
-		syncState.Files[req.Path] = req.Hash
+		// Detect file mode
+		mode := os.FileMode(0644)
+		if models.IsBinaryFile(req.Path, plainData) {
+			mode = 0644
+		}
 		
-		e.logger.WithFields(map[string]interface{}{
-			"path":            req.Path,
-			"decrypted_size":  len(plainData),
-			"is_binary":       models.IsBinaryFile(req.Path, plainData),
-		}).Info("File downloaded and written successfully")
+		// Queue for upload
+		select {
+		case downloadQueue <- downloadedFile{
+			path: req.Path,
+			hash: req.Hash,
+			data: plainData,
+			mode: mode,
+		}:
+			downloadCount++
+			e.logger.WithFields(map[string]interface{}{
+				"path": req.Path,
+				"queued": downloadCount,
+			}).Debug("Queued file for upload")
+		case <-ctx.Done():
+			close(downloadQueue)
+			<-uploadDone
+			return
+		}
 	}
+	
+	// All downloads complete, close the queue
+	e.logger.WithField("total_downloaded", downloadCount).Info("All files downloaded, waiting for uploads to complete")
+	close(downloadQueue)
+	
+	// Wait for all uploads to complete
+	<-uploadDone
+	
+	// Check for upload errors
+	var uploadErrorCount int
+	for range uploadErrors {
+		uploadErrorCount++
+	}
+	
+	if uploadErrorCount > 0 {
+		e.logger.WithField("errors", uploadErrorCount).Warn("Some files failed to upload")
+	} else {
+		e.logger.WithField("total_files", downloadCount).Info("All files successfully uploaded to S3")
+	}
+	
+	// Signal completion - this will trigger WebSocket close
+	e.syncPhase = "complete"
 	
 	// Completion signal is sent by defer function
 }
 
 // completePullPhase signals that the pull phase is complete.
 func (e *Engine) completePullPhase() {
-	e.logger.Info("Pull phase completed, signaling sync completion")
+	e.logger.Info("Sending pull phase completion signal")
 	
 	// Set phase to complete
 	e.syncPhase = "complete"
@@ -1199,6 +1277,7 @@ func (e *Engine) completePullPhase() {
 	case e.pullResponses <- PullResponse{
 		Type: "complete",
 	}:
+		e.logger.Info("Pull completion signal sent successfully")
 	default:
 		e.logger.Warn("Failed to send completion signal - channel full")
 	}

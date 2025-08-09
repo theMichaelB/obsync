@@ -1,0 +1,29 @@
+# Example: Add a weekly full sync schedule alongside hourly incremental syncs
+# Rename this file to full-sync-schedule.tf to enable
+
+resource "aws_cloudwatch_event_rule" "full_sync_schedule" {
+  count               = var.enable_schedule ? 1 : 0
+  name                = "obsync-full-sync-schedule"
+  description         = "Trigger obsync full sync weekly"
+  schedule_expression = "rate(7 days)"  # Or use cron: "cron(0 2 ? * SUN *)" for Sundays at 2 AM UTC
+}
+
+resource "aws_cloudwatch_event_target" "full_sync_lambda" {
+  count     = var.enable_schedule ? 1 : 0
+  rule      = aws_cloudwatch_event_rule.full_sync_schedule[0].name
+  target_id = "obsync-full-sync-target"
+  arn       = aws_lambda_function.obsync.arn
+  input     = jsonencode({ 
+    action    = "sync", 
+    sync_type = "complete"  # Full sync
+  })
+}
+
+resource "aws_lambda_permission" "allow_cloudwatch_full_sync" {
+  count         = var.enable_schedule ? 1 : 0
+  statement_id  = "AllowExecutionFromCloudWatchFullSync"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.obsync.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.full_sync_schedule[0].arn
+}
