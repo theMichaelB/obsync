@@ -30,6 +30,28 @@ type HTTPClient struct {
 	retryDelay time.Duration
 }
 
+// sanitizeBody removes sensitive information from request bodies for logging
+func sanitizeBody(body []byte, url string) string {
+	// For auth endpoints, sanitize credentials
+	if url == "https://api.obsidian.md/user/signin" {
+		var data map[string]interface{}
+		if err := json.Unmarshal(body, &data); err == nil {
+			// Replace sensitive fields with placeholders
+			if _, ok := data["password"]; ok {
+				data["password"] = "[REDACTED]"
+			}
+			if _, ok := data["mfa"]; ok {
+				data["mfa"] = "[REDACTED]"
+			}
+			if sanitized, err := json.Marshal(data); err == nil {
+				return string(sanitized)
+			}
+		}
+	}
+	// For non-auth endpoints or if parsing fails, return size only
+	return fmt.Sprintf("[%d bytes]", len(body))
+}
+
 // NewHTTPClient creates an HTTP client.
 func NewHTTPClient(cfg *config.APIConfig, logger *events.Logger) *HTTPClient {
 	// Create transport with HTTP/2 support
@@ -85,7 +107,7 @@ func (c *HTTPClient) PostJSON(ctx context.Context, path string, payload interfac
 		"method": "POST",
 		"url":    url,
 		"size":   len(body),
-		"body":   string(body),
+		"body":   sanitizeBody(body, url),
 	}).Debug("Sending request")
 
 	// Execute with retry
